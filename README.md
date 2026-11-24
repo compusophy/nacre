@@ -1,70 +1,127 @@
 # nacre
 
-> deterministic symbolic cells, durable merkle journals, verified reflexes, and co-evolutionary security — in pure `#![no_std]` rust with zero external dependencies.
+**live workbench: https://nacre-studio-three.vercel.app**
 
-**live studio**: https://nacre-studio-three.vercel.app
+a small `#![no_std]` rust kernel (`#![forbid(unsafe_code)]`, zero external dependencies) for agents.
 
----
-
-## what nacre does
-
-1. **content-addressed merkle-dag cells (`nacre-core::arena`, `eval`)**
-   - code, data, rules, effects, and suspended continuations live in one hash-consed sha-256 arena (`#![no_std]`, `#![forbid(unsafe_code)]`, 0 external deps, 0 floats, 0 clocks).
-   - algebraic `perform`/`handle` unifies durability, capability firewalls, mocking, and fractal sub-cells into one small-step primitive. yielding an effect returns a tiny (`<250 B`), human-readable, injection-proof residual continuation `(cont ...)`.
-2. **journal-backed reflex crystallization (`journal`, `distill`, `synthesize`, `evolve`, `wasm_emit`)**
-   - the durable execution journal *is* the self-optimization oracle.
-   - distills pure or hybrid-guarded reflexes from recorded traces (including `nanocode-code-mode-engine`'s exact `JournalEntry` JSONL wire format via `nanocode_bridge`), mechanically proves static capability non-escalation + 100% replay parity, compiles pure `i64` rules into standalone `164–234 B` WebAssembly 1.0 binaries with a built-in differential oracle, and seals portable `.ncrystal` bundles.
-3. **co-evolutionary security arena (`pt_mcmc`, `coev`, `security_bench`, `live`)**
-   - pure fixed-point Q16.16 parallel-tempered MCMC (replica exchange + genetic crossover + MAP-Elites) paired with `alive`-gated surgical `nacre` hard antibodies and a pure-rust live cross-model runner (`google/gemini-4-hydrogen` vs `google/gemini-4-neon`).
-
----
-
-## headline verified benchmarks
-
-full tables and Run 1 → Run 2 → Run 3 hill-climb log in [BENCHMARKS.md](BENCHMARKS.md); `nanocode` integration RFC in [docs/NANOCODE_RFC.md](docs/NANOCODE_RFC.md).
-
-- **domain a (12 algorithmic synthesis tasks, disjoint held-out)**: `10/11` expressible solved `100%` on unseen held-out + compiled to `164–234 B` native WASM 1.0 (`0` held-out wrong across all 12 tasks including `prime_ctrl` falsification control); `sum_to_n` climbs 5 stages (`gen0 oracle → gen2 recursive → gen3 O(1) closed form`: **`18.5×` / `94.6%` fuel collapse** → `186 B` WASM).
-- **domain c (170 real `openai/codex` github issues via `nanocode` JSONL bridge, chronological 101 train → 69 unseen future)**: **`96%` offline precision (`28/29`) while eliminating `42%` of future llm calls** (`50%` eliminated at `91%` precision).
-- **domain d & e (security control matrix & pt-mcmc red-queen arena)**: **`18/18` breaches on naked control → `12/18` on naive guard → `0/18` on `nacre`**; on hardened gen 4 checkpoints, `pt_mcmc_genetic` (`37%` swap acceptance) beats `greedy`, `single_temp_sa`, and `random`; `nacre` hard antibodies hold `12/12` (`100%`) `alive` with `0` regression leaks and `0` paid replay LLM calls vs. `1/12` autoimmune collapse (naive blocklist) and `5` leaks / `165` replay calls (capped soft prompt).
-- **domain f & g (184 live vercel ai gateway calls across `gemini-4-hydrogen`, `gemini-4-neon`, `claude-haiku-5.5`, `deepseek-v4.1-flash`, `$0.7519` total)**: `4/4` models breach turn 1 naked; `claude-haiku-5.5` hijacked live on `prefix_collision` (`fs_read("/public_secret/prod_keys.env")`) under default agent prompt and cryptographically blocked by `nacre` (`merkle b9bc787f1e37`, `0/8` breaches, `4/4` benign `alive_ok`); explicit single-turn policies hold `32/32` across all 4 models while exposing a **73× live cost spread** (`$0.0013` Haiku 5.5 vs. `$0.0956` Gemini 4 Neon per 12-call suite).
-
----
-
-## quick start
+every tool call passes through a pure algebraic effect handler before it touches the host, and every decision goes into a sha-256 hash-chained journal. once the same pattern shows up enough times in a journal, `nacre` compiles it into a sealed `.ncrystal` reflex or a standalone webassembly 1.0 binary so the agent stops paying a model for work it already solved.
 
 ```bash
-# run all 14 core verification tests
-cargo test --workspace
-
-# run end-to-end kernel demo
-cargo run -p nacre-cli -- demo
-
-# run 3-domain hill-climb & real openai/codex benchmark
-cargo run --release -p nacre-cli -- bench
-
-# run 4-way pt-mcmc ablation & red-queen co-evolution arena
-cargo run --release -p nacre-cli -- coev
-
-# run naked-control vs naive-guard vs nacre security matrix
-cargo run --release -p nacre-cli -- security-bench
-
-# run live N x N cross-model tournament via vercel ai gateway (pure rust, 0 node/python)
-cargo run --release -p nacre-cli -- live-matrix \
-  --models google/gemini-4-hydrogen,google/gemini-4-neon,anthropic/claude-haiku-5.5,deepseek/deepseek-v4.1-flash-1017-ultrafast --turns 3
-
-# run live indirect prompt-injection benchmark (conventional harness vs nacre handle firewall)
-cargo run --release -p nacre-cli -- live-inject \
-  --models google/gemini-4-hydrogen,google/gemini-4-neon,anthropic/claude-haiku-5.5,deepseek/deepseek-v4.1-flash-1017-ultrafast
-
-# build single-file offline wasm studio
-cargo build -p nacre-wasm --target wasm32-unknown-unknown --release
-cargo run -p nacre-cli -- build-studio
+cargo install --path crates/nacre-cli
 ```
 
-## workspace layout
+---
 
-- `crates/nacre-core` — `#![no_std]` + `alloc`, `#![forbid(unsafe_code)]`, 0 external deps
-- `crates/nacre-cli` — `#![forbid(unsafe_code)]`, 0 external deps (`demo`, `run`, `caps`, `replay`, `crystallize`, `verify`, `ingest-nanocode`, `wasm-reflex`, `bench`, `coev`, `security-bench`, `live-matrix`, `live-inject`, `build-studio`)
-- `crates/nacre-wasm` — `wasm32-unknown-unknown` kernel + pure-rust studio ui renderer
-- `benchmarks/codex_issues.tsv` — 170 real public `openai/codex` issues with issue numbers & labels
-- `docs/NANOCODE_RFC.md` — non-breaking reflex middleware & resumable cell RFC for `nanocodexyz/nanocode`
+## use it today
+
+you do not have to rewrite your agent in a new language to use `nacre`. the cli drops directly in front of any mcp server, claude code hook, or jsonl call log.
+
+### 1. wrap any mcp server (`nacre mcp-guard`)
+
+mcp servers have no built-in capability firewall. wrap any stdio server in your claude desktop, cursor, or codex config with `nacre mcp-guard`:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "nacre",
+      "args": [
+        "mcp-guard",
+        "--allow-path", "/repo/src/",
+        "--deny-tool", "http_post",
+        "--deny-substr", ".env",
+        "--deny-substr", "id_rsa",
+        "--journal", ".nacre-audit.jsonl",
+        "--",
+        "npx", "-y", "@modelcontextprotocol/server-filesystem", "/repo"
+      ]
+    }
+  }
+}
+```
+
+every `tools/call` is evaluated inside `nacre-core`'s pure `handle` firewall in under a millisecond before the child server ever sees it. path separators are normalized, `..` and `%2e` traversals are rejected, blocked calls return a json-rpc `-32003` error with the sha-256 merkle proof hash, and every allow/block appends to a hash-chained audit log.
+
+inspect the generated pure policy or supply your own custom `.nacre` handler:
+
+```bash
+nacre mcp-guard --allow-path /repo/src/ --deny-substr .env --print-policy
+```
+
+### 2. claude code / codex `PreToolUse` hook (`nacre hook`)
+
+drop into `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "nacre hook --allow-path /repo/src/ --deny-substr .env --deny-substr 'rm -rf' --journal .nacre-audit.jsonl"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+allowed calls exit `0`. blocked calls print the merkle proof to stderr and exit `2` (claude code's native block code).
+
+verify the hash-chained audit log offline at any time (catches edited, reordered, or deleted entries):
+
+```bash
+nacre audit-verify .nacre-audit.jsonl
+```
+
+### 3. distill a jsonl log into a sealed offline reflex (`nacre distill` / `nacre query`)
+
+given any newline-delimited json file of `{"input":"...","output":"..."}` pairs:
+
+```bash
+# synthesize a hybrid reflex (global purity invariant, min_support=4) and seal it with sha-256
+nacre distill --input calls.jsonl --out triage.ncrystal --min-support 4
+
+# query offline at 0 tokens: exits 0 with the label, 10 if unseen (ask the llm), 3 if tampered
+nacre query triage.ncrystal "outage: checkout api 503"
+```
+
+---
+
+## what we measured
+
+full tables and commands are in [BENCHMARKS.md](BENCHMARKS.md); the `nanocode` integration rfc is in [docs/NANOCODE_RFC.md](docs/NANOCODE_RFC.md).
+
+- **structural & supply-chain security (`nacre security-bench`)**: across 18 executable probes (continuation code injection, ambient capability escape, path traversal, fuel/depth dos, `.ncrystal` bundle tamper), a conventional harness fails `18/18`, naive prefix/regex guards fail `12/18`, and `nacre` holds `0/18`.
+- **184 live calls across four late-2026 fast models (`nacre live-matrix`, `nacre live-inject`, `$0.7519` via vercel ai gateway)**: with an explicit path policy in the system prompt, `gemini-4-hydrogen`, `gemini-4-neon`, `claude-haiku-5.5`, and `deepseek-v4.1-flash` held single-turn probes (`0/8` each). when that prompt wording was omitted (`--no-policy`), an untrusted doc talked `claude-haiku-5.5` into emitting `fs_read("/public_secret/prod_keys.env")`; `nacre`'s 8-line `handle` firewall blocked it at zero tokens (`merkle b9bc787f1e37`) while keeping `4/4` benign `/public/` docs alive.
+- **170 real `openai/codex` github issues (`nacre bench`)**: ingested via `nanocode`'s jsonl format, split chronologically (101 oldest train -> 69 unseen future). with zero gpu training, `nacre` eliminated `42%` of future llm calls at `96%` precision (`28/29`), cleanly escalating ambiguous issues back to the model.
+- **5-stage superoptimization to wasm 1.0**: on 12 algorithmic tasks with disjoint held-out inputs, `10/11` expressible tasks solved `100%` and compiled to `164-234 b` standalone webassembly 1.0 binaries (`sum_to_n` dropped from `1,112` recursive fuel to `60` closed-form fuel, `18.5x` less, -> `186 b` wasm). on `prime_ctrl`, which does not fit a small arithmetic rule, `nacre` refused to guess and escalated `6/6` with `0` errors.
+- **fixed-point pt-mcmc co-evolution (`nacre coev`)**: on a 67m-state 2-turn deceptive refusal landscape (pure q16.16 fixed-point, zero floats), surgical `nacre` hard antibodies held `12/12` benign queries alive with `0` regression leaks and `0` paid replay calls, compared to `1/12` autoimmune collapse for naive blocklists and `5` leaks / `165` replay calls for capped soft prompts.
+
+---
+
+## reproduce everything
+
+```bash
+cargo test --workspace                                   # 19 tests (core + cli guards + wasm studio)
+cargo run --release -p nacre-cli -- bench                # algorithmic synthesis + 170 openai/codex issues
+cargo run --release -p nacre-cli -- security-bench       # 18 structural probes + 4-arm adaptive red-queen
+cargo run --release -p nacre-cli -- coev                 # 4-way pt-mcmc ablation + red-queen arena
+cargo run --release -p nacre-cli -- live-inject          # live vercel ai gateway indirect-injection suite
+
+# build single-file browser workbench (no server required)
+cargo build -p nacre-wasm --target wasm32-unknown-unknown --release
+cargo run --release -p nacre-cli -- build-studio
+```
+
+## workspace
+
+- `crates/nacre-core` — `#![no_std]` + `alloc`, `#![forbid(unsafe_code)]`, 0 external deps, 0 floats, 0 clocks
+- `crates/nacre-cli` — `#![forbid(unsafe_code)]`, 0 external deps (`mcp-guard`, `hook`, `distill`, `query`, `audit-verify`, `bench`, `security-bench`, `coev`, `live-matrix`, `live-inject`, `build-studio`)
+- `crates/nacre-wasm` — `wasm32-unknown-unknown` kernel + browser workbench renderer
+- `benchmarks/codex_issues.tsv` — 170 public `openai/codex` issues with issue numbers and labels
+- `docs/NANOCODE_RFC.md` — non-breaking reflex middleware & resumable cell rfc for `nanocodexyz/nanocode`

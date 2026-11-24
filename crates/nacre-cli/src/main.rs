@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod bench;
+mod guard;
 mod live;
 
 use std::env;
@@ -32,6 +33,11 @@ fn main() {
     }
 
     let res = match args[0].as_str() {
+        "mcp-guard" => guard::run_mcp_guard(&args[1..]),
+        "hook" => guard::run_hook(&args[1..]),
+        "distill" => guard::run_distill(&args[1..]),
+        "query" => guard::run_query(&args[1..]),
+        "audit-verify" => guard::run_audit_verify(&args[1..]),
         "bench" => bench::run_bench(),
         "coev" => cmd_coev(),
         "security-bench" => cmd_security_bench(),
@@ -65,6 +71,21 @@ fn print_help() {
 nacre — deterministic symbolic cells, durable merkle journals, and verified reflexes
 
 commands:
+  nacre mcp-guard [--allow-path <pfx>] [--deny-tool <name>] [--deny-substr <str>] [--policy <f>] [--journal <audit.jsonl>] -- <cmd> [args...]
+      wrap any stdio MCP server behind nacre's algebraic handle firewall + sha-256 audit journal
+
+  nacre hook [--allow-path <pfx>] [--deny-tool <name>] [--deny-substr <str>] [--policy <f>] [--journal <audit.jsonl>]
+      drop-in Claude Code / Codex PreToolUse stdin JSON guard (exit 0 allow, exit 2 block + merkle proof)
+
+  nacre distill --input <calls.jsonl> --out <skill.ncrystal> [--min-support 4] [--pure]
+      distill a plain JSONL call log into a sha-256 sealed offline/hybrid .ncrystal reflex
+
+  nacre query <skill.ncrystal> <input|--stdin>
+      verify and query a .ncrystal reflex offline (exit 0 hit, exit 10 escalate to llm, exit 3 tamper)
+
+  nacre audit-verify <audit.jsonl>
+      verify the sha-256 hash chain of an mcp-guard / hook audit journal offline
+
   nacre bench
       run the real 2-domain verifiable hill-climb & ablation benchmark
       (12 algorithmic tasks + 60-event incremental streaming generalization)
