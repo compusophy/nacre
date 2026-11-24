@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nacre — rust/wasm deterministic cells &amp; verified reflexes</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; text-transform: lowercase !important; }
+  :root {
+    --bg: #090b10; --panel: #111520; --panel-2: #171d2c; --border: #232c40;
+    --text: #eef2fa; --muted: #8f9bb3; --accent: #7ce8d5; --accent-2: #b49cff;
+    --ok: #7ee3a3; --warn: #f6c177; --err: #f28b9c;
+    --sans: ui-sans-serif, system-ui, -apple-system, "segoe ui", sans-serif;
+    --mono: ui-monospace, "cascadia code", "jetbrains mono", consolas, monospace;
+  }
+  html, body { margin: 0; padding: 0; background: radial-gradient(ellipse at 20% -10%, #17233b 0%, var(--bg) 55%); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+  header { max-width: 1120px; margin: 0 auto; padding: 20px 20px 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo { font-family: var(--mono); font-size: 20px; font-weight: 700; letter-spacing: 0.06em; background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .status-pill { font-family: var(--mono); font-size: 11px; color: var(--accent); background: rgba(124,232,213,0.08); border: 1px solid rgba(124,232,213,0.28); border-radius: 999px; padding: 4px 10px; }
+  .mode-switch { display: inline-flex; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; }
+  .mode-btn { border: none; background: transparent; color: var(--muted); font-family: var(--mono); font-size: 12px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+  .mode-btn.active { background: var(--panel-2); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(124,232,213,0.35); }
+  main { max-width: 1120px; margin: 0 auto; padding: 8px 20px 56px; }
+  .hero { margin: 8px 0 24px; padding: 18px 22px; border-radius: 12px; background: linear-gradient(135deg, rgba(124,232,213,0.07), rgba(180,156,255,0.06)); border: 1px solid var(--border); }
+  .hero h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; }
+  .hero p { margin: 0; color: var(--muted); max-width: 720px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+  .lab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 940px) { .steps, .lab-grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+  .card.highlight { border-color: rgba(124,232,213,0.48); box-shadow: 0 0 0 1px rgba(124,232,213,0.12), 0 12px 32px rgba(0,0,0,0.3); }
+  .step-head { display: flex; align-items: center; gap: 10px; }
+  .step-num { width: 24px; height: 24px; border-radius: 999px; display: grid; place-items: center; font-family: var(--mono); font-size: 12px; font-weight: 700; background: rgba(124,232,213,0.14); color: var(--accent); border: 1px solid rgba(124,232,213,0.35); flex: 0 0 auto; }
+  .step-title { font-size: 15px; font-weight: 600; }
+  .step-desc, .muted { color: var(--muted); font-size: 12.5px; margin: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 5px 11px; font-size: 12px; cursor: pointer; }
+  .chip:hover { border-color: var(--accent); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .row > .grow { flex: 1; min-width: 140px; }
+  input, textarea { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-family: var(--sans); font-size: 13px; outline: none; }
+  textarea, .mono { font-family: var(--mono); font-size: 12px; }
+  .btn { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 8px; padding: 9px 14px; font-size: 13px; cursor: pointer; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: linear-gradient(90deg, rgba(124,232,213,0.22), rgba(180,156,255,0.22)); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .btn.danger { border-color: rgba(242,139,156,0.45); color: var(--err); }
+  .btn.sm { padding: 5px 10px; font-size: 12px; }
+  .journal-list { display: flex; flex-direction: column; gap: 6px; max-height: 215px; overflow-y: auto; }
+  .journal-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 10px; background: #0c0f17; border: 1px solid var(--border); border-radius: 7px; font-size: 12px; }
+  .journal-msg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tag { display: inline-flex; padding: 2px 8px; border-radius: 999px; font-family: var(--mono); font-size: 11px; border: 1px solid var(--border); background: var(--panel-2); color: var(--muted); }
+  .tag.ok { color: var(--ok); border-color: rgba(126,227,163,0.4); }
+  .tag.warn { color: var(--warn); border-color: rgba(246,193,119,0.4); }
+  .tag.err { color: var(--err); border-color: rgba(242,139,156,0.45); }
+  .tag.accent { color: var(--accent); border-color: rgba(124,232,213,0.4); }
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .metric { background: #0c0f17; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .metric-label { font-size: 11px; color: var(--muted); }
+  .metric-val { font-family: var(--mono); font-size: 16px; font-weight: 700; }
+  .metric-val.ok { color: var(--ok); }
+  .metric-val.warn { color: var(--warn); }
+  .result-box { background: #0c0f17; border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .rule-visual { display: flex; flex-direction: column; gap: 6px; }
+  .rule-branch { padding: 7px 10px; border-radius: 6px; background: var(--panel-2); border-left: 3px solid var(--accent); font-family: var(--mono); font-size: 12px; }
+  .rule-branch.fallback { border-left-color: var(--warn); }
+  .pill-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: #0c0f17; border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
+  .pill-opt { border: none; background: transparent; color: var(--muted); padding: 6px 8px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+  .pill-opt.active { background: var(--panel-2); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(124,232,213,0.35); }
+  .divider { height: 1px; background: var(--border); }
+  details { border-top: 1px solid var(--border); padding-top: 8px; }
+  summary { cursor: pointer; color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  pre.code { margin: 6px 0 0; padding: 10px; border-radius: 6px; background: #080a0f; border: 1px solid var(--border); font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; }
+  footer { max-width: 1120px; margin: 0 auto; padding: 16px 20px 32px; color: var(--muted); font-family: var(--mono); font-size: 11px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div id="app"><main><section class="hero"><h1>loading nacre rust/wasm kernel...</h1></section></main></div>
+<script>
+// thin wasm loader only (~40 lines) — all ui state, synthesis, verification & html rendering live in rust!
+(async () => {
+  const WASM_B64 = "__NACRE_WASM_BASE64__";
+  const bin = atob(WASM_B64), bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const { instance } = await WebAssembly.instantiate(bytes, {});
+  const k = instance.exports, enc = new TextEncoder(), dec = new TextDecoder(), app = document.getElementById("app");
+  const call = (fn, s) => {
+    const b = enc.encode(s), n = Math.min(b.length, k.nacre_in_cap());
+    new Uint8Array(k.memory.buffer).set(b.subarray(0, n), k.nacre_in_ptr());
+    const st = k[fn](n), m = new Uint8Array(k.memory.buffer);
+    return { st, buf: m.slice(k.nacre_out_ptr(), k.nacre_out_ptr() + k.nacre_out_len()) };
+  };
+  const render = (act, val = "") => { app.innerHTML = dec.decode(call("nacre_ui_dispatch", act + "\n" + val).buf).toLowerCase(); };
+  app.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button"); if (!btn) return;
+    if (btn.dataset.wasmCompile) {
+      const lex = document.getElementById("lab-lex").value, head = document.getElementById("wasm-head").value.trim(), arg = BigInt(document.getElementById("wasm-arg").value || "12");
+      const r = call("nacre_compile_wasm_reflex", lex + "\n---\n" + head), out = document.getElementById("wasm-native-out");
+      if (r.st !== 0) { out.textContent = dec.decode(r.buf).toLowerCase(); return; }
+      const { instance: rf } = await WebAssembly.instantiate(r.buf);
+      out.textContent = `emitted: ${r.buf.length} bytes wasm 1.0\nnative (${head} ${arg}) = ${rf.exports.run(arg, 50000n)} (status=${rf.exports.get_status()}, calls=${50000n - rf.exports.get_fuel_rem()})`.toLowerCase();
+      return;
+    }
+    const act = btn.dataset.act; if (!act) return;
+    if (act === "lab_run") { render(act, document.getElementById("lab-lex").value + "\n---\n" + document.getElementById("lab-expr").value); return; }
+    const val = btn.dataset.from ? document.getElementById(btn.dataset.from).value : (btn.dataset.val || "");
+    render(act, val);
+  });
+  render("init");
+})();
+</script>
+</body>
+</html>

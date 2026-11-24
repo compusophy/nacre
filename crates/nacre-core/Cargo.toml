@@ -1,0 +1,8 @@
+[package]
+name = "nacre-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "deterministic, zero-dep, content-addressed symbolic cell kernel with algebraic effects, durable merkle journals, and verified reflex crystallization"
+
+[dependencies]

@@ -1,0 +1,7 @@
+/target
+studio/.vercel
+**/*.ntrace
+**/*.ncrystal
+**/*.wasm
+*.log
+.DS_Store

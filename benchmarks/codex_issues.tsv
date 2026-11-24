@@ -1,0 +1,170 @@
+241	cli	add nixos package
+1849	auth	error response error code: 500  message: token exchange failed: <urlopen error [ssl: certificate_verify_failed] certificate verify failed: unable to get local issuer certificate (_ssl.c:1028)>.  error code explanation: 500 - server got itself in trouble.
+1958	auth	unable to authenticate with chatgpt account
+2330	auth	logged in with chatgpt pro account, codex says 'to use codex with your chatgpt plan, upgrade to plus'
+2414	auth	token exchange failed: token endpoint returned status 403 forbidden
+2491	auth	error logging in using a gpt account on windows
+2512	auth	personal account (institutional email log in bug)
+2522	auth	refresh azure auth token / hook to run a script on 401 http error? ref #2484
+2557	auth	unable to logout/invalidate login credentials from auth.json
+2629	auth	30k tokens per minute with tier 1 api key
+2632	cli	integration with github issue tracker
+2636	auth	long-lived authentication token
+2744	cli	connect to codex cli from the chatgpt desktop app
+2798	auth	support remote / headless oauth sign-in
+2815	auth	unable to login using chatgpt enterprise
+2869	auth	sign-in error when using the remote env in vscode
+2900	auth	unable to log in with teams plan
+2992	auth	automatic use api key once chatgpt account limits exceeded
+3002	auth	use account with chatgpt plus subscription to login codex cli get 401 unauthorized
+3009	cli	`codex completion` without any arguments always returns the bash completion
+3029	auth	pro plan shows as plus in /status
+3064	cli	configuration for inherited environment variables
+3103	cli	diffs should show function name
+3151	cli	codex panicked: index outside of buffer
+3192	auth	windows vscode authorization via email
+3206	auth	pro plan doesnt get recognized after upgrade, just whenever you log out and log in again
+3286	auth	sign in with api key via environment variable cannot be used if chatgpt subscription login is active
+3328	cli	model output is sometimes interleaved with other data
+3366	auth	allow re-authentication or api key entry after reaching plan limits
+3413	cli	add file content inclusion markers (different but similar to the current @filename) for full file content referencing in cli
+3423	auth	signing in with chatgpt account asks for api orgnization - works on mac/linux but not windows
+3578	auth	codex cli login fails after switching to plus
+3661	auth	auth cli
+3669	cli	gpt-5-codex medium model incorrectly sets reasoning effort to none instead of medium
+3782	auth	can't log in to a paid team workspace
+3863	auth	login with plus account with .edu email fails
+3927	auth	codex auth login fails with 'port 127.0.0.1:1455 is already in use' on wsl
+4010	auth	codex cannot login to chatgpt plus account if created with email/password and then used google auth
+4034	auth	[vscode codex extension] cannot sign in with chatgpt
+4115	auth	[status] account plan displays 'free' despite active plus subscription
+4163	cli	named sessions for --resume
+4432	auth	first-class multi-account auth via '--auth-profile'
+4484	auth	support dynamic apikeyhelper field for dynamic api key support
+4554	auth	api key bach not working
+4557	auth	/status incorrectly shows enterprise accounts as 'business'
+4562	auth	vscode connected to wsl can not sign-in
+4679	cli	codex 0.44.0 fails under proot: prctl(pr_set_dumpable, 0) error
+4682	cli	new ui doesn't show context after response.
+4732	cli	do not indent output
+4738	cli	copied the large model's reply, only copied the text, lost the markdown format
+4826	auth	custom authentication
+4875	auth	custom location for codex-rs/login/server.rs `redirect_uri`
+4920	cli	forked conversations not saving
+4984	cli	can't  drag vscode file path to codex input
+5015	cli	cannot update codex
+5017	cli	^y yank fails - i lose data when i use ^w ^k ^u
+5034	cli	unable to use git even with workspace-write
+5036	cli	chinese ime — pressing space hides previously typed characters (powershell on windows 11)
+5212	auth	support using openai_api_key without writing to auth.json
+5221	auth	cli login fails on android/termux during token exchange step
+5272	cli	be able to switch profiles, not just models
+5283	auth	linux: token exchange failed: error sending request for url (https://auth.openai.com/oauth/token)
+5390	cli	feature request: real-time token counter next to time counter (like claude code)
+5409	auth	setting key for 3rd party model provider through auth.json
+5550	auth	plus account marked as free in codex cli
+5553	auth	codex login didn't support chatgpt sso
+5608	auth	to use codex with your chatgpt plan, upgrade to plus: https://openai.com/chatgpt/pricing.
+5678	auth	authentication should show login again if token expired or other token error
+5787	cli	macos sequoia 15.7.1 quarantine kills codex binary until xattr is cleared
+5819	cli	macos terminal new line is broken
+5860	cli	bump ruby version in cli sandbox
+5931	cli	esc or control+c does not kill running process have to kill the conversation at all
+5955	auth	codex (vscode extension) fails to auth/use over corporate vpn while chatgpt web works fine (recent regression)
+6030	cli	nushell completions
+6133	auth	older api keys not supported
+6150	cli	support codex on ubuntu24.04 on risc-v (riscv64)
+6186	cli	switch cli update check to “once per calendar day” based on local timezone (have-we-checked-today) instead of 20h
+6226	cli	adding screenshot causes 400 error
+6348	cli	add notify trigger when user permission is required during conversation
+6360	cli	bug: /status always reflects the newest login instead of the current session
+6361	cli	bug: /status unusable immediately after login until a filler message is sent
+6372	cli	option to disable prompt to switch models when approaching allowance limits
+6374	cli	[windows sandbox] codex running read-only even when sandbox set to danger-full-access
+6375	cli	azure responses: second turn fails with 400 “message missing reasoning” error
+6385	cli	windows tui paste loses turkish characters (cp857 vs utf-8)
+6392	cli	strange output from codex
+6394	cli	connect to chatgpt projects
+6395	cli	codex keeps asking for permissions after pressing 'yes, and don't ask again for this command'
+6397	cli	stream disconnected before completion
+6398	cli	stream disconnected before completion & possible response routing issue (receiving unrelated polish text)
+6400	cli	codex cli on macos 26.1 returns “unexpected status 404 not found” for natural-language prompts (web-auth mode; models gpt-5-medium, 0.55/0.56)
+6401	cli	unexpected python execution when using `gpt-5-codex` (high)
+6404	cli	background task management for codex - seeking approval to submit pr
+6415	cli	byte truncation doesn't preserve command output tails, confusing codex (e.g. with cargo output)
+9284	app_server	app-server thread/resume omits tool-call step history present in .codex rollout logs[/-] [+]store tool-call steps in rollout logs
+11728	app_server	app-server config write apis cannot target project .codex/config.toml (user config only)
+12962	app_server	codex app-server crashes on windows 11 build 26200 (hw capability error)
+13019	app_server	desktop app: completion notification config appears ignored in app-server mode
+13476	browser	excessive approval prompts after recent changes for playwright mcp
+13821	app_server	unconfirmed: app-server command/exec hang after outputbytescap is reached
+14137	app_server	bug: app-server can retain orphaned threads after last-subscriber disconnect
+14364	app_server	windows desktop app: packaged app-server exits with 0xc0000135 on launch, likely missing runtime dependency
+14368	browser	codex macos sandbox prevents playwright browser tests from starting (bootstrap_check_in permission denied (1100), listen eperm 127.0.0.1)
+14396	app_server	codex desktop app — “failed to resume task” on all sessions after service incident
+14454	browser	codex app disconnects all mcp servers when playwright mcp returns -32601 for resource template listing
+14722	app_server	sync cli and app-server sessions
+14923	app_server	desktop app: explicit cross-thread orchestration over existing thread/* and turn/* primitives
+15350	app_server	app-server: add last_assistant_message to thread in thread/list response
+15365	browser	macos desktop browser mcp consistently returns `transport closed` while codex cli succeeds on the same machine
+15485	app_server	add cursors to `thread/read` in the codex app-server
+15506	app_server	add a --proxy flag to the app-server launch parameters
+15753	browser	playwright mcp still triggers arc approval prompts in danger-full-access / approval_policy=never, including localhost workflows
+15767	app_server	support custom session id for new threads via threadstartparams
+15871	app_server	external chat/controller bridge: assistant completion is not always delivered back to the originating user surface immediately
+16085	browser	playwright dont work within codex but cli
+16188	browser	playwright/browser automation in codex app on windows hijacks the physical mouse cursor
+16390	browser	codex desktop launches playwright mcp with cwd /, causing output path resolution to /.playwright-mcp
+16545	app_server	thread/list filesystem fallback can hide older matching threads after hitting 10,000-file scan cap
+16696	browser	codex desktop ignores configured playwright mcp server and falls back to chrome-launching playwright path
+16869	app_server	app-server sdk: allow caller-provided id on turnstartparams for steer correlation
+16872	app_server	app-server websocket shared-thread turns complete but rollout never materializes, so sibling thread/resume fails with 'no rollout found'
+16979	app_server	thread/list searchterm matching is case-sensitive and inconsistent across listing paths
+17101	app_server	tui-usable session-control primitive in codex cli
+17554	app_server	app-server-protocol: turnstartparams json schema drifts from generated typescript
+17574	browser	subagents leak stdio mcp helper trees in codex app; xcodebuildmcp and chrome-devtools-mcp accumulate indefinitely
+17708	app_server	commit / pr controls becoming stale (app-server research)
+17832	browser	regression: playwright mcp stdio processes still leak after #16895 fix — 213 orphaned pairs, 13.6 gb rss
+17900	app_server	clarify thread/read vs thread/resume semantics in integration docs
+17923	app_server	compilation warning: unused constant
+17933	app_server	new conversation ignores selected model and starts as gpt-5.4
+17949	app_server	make codex-app-server-client or a separate crate similar to typescript and python codex-sdk
+18203	app_server	app-server disconnects remote tui mid-turn when outbound queue fills (128 messages)
+18327	browser	browser auto reload
+18374	browser	vs code extension: add an option to open external links in vs code's integrated browser
+18495	app_server	macos desktop follow-up message submit delayed 5-10s after computer use update
+18503	app_server	windows codex app remote connections fail when the remote machine's 127.0.0.1:9234 is already in use
+18516	app_server	review/start can disagree with turn/started turn.id during review lifecycle
+18537	browser	app: expose mobile device emulation in the in-app browser devtools
+18547	app_server	mac codex app remote ssh on shared linux host attaches to another user's session / home directory
+18556	app_server	codex app restores stale discovered ssh host state on startup and crashes with 'no appservermanager registered for hostid'
+18615	app_server	feature request: add documented chatgpt device-code auth support to codex app-server
+18629	browser	desktop threads can be poisoned by inline base64 tool images, leading to `{'detail':'bad request'}` on resume and likely inflated token usage
+18640	app_server	threads / projects in sidebar missing
+18805	app_server	codex app-server provider probe fails on account.plantype = 'prolite'
+18842	app_server	codex vs code extension fails to enable realtime_conversation; new chats cannot switch model and output is flooded with worker warnings
+18860	app_server	remote tui can remain stale after app-server slow-websocket disconnect
+18964	app_server	app-server supports set model_provider on `turn/start`
+18965	app_server	vs code extension leaks and duplicates local stdio mcp processes on windows
+18974	app_server	codex app crashes on stale discovered ssh host after ~/.ssh/config is emptied or host entry is removed
+19045	app_server	thread/resume and thread/fork ignore developerinstructions override on first resumed turn
+19203	app_server	remote connection displays gpt5.5 as custom model
+19220	app_server	codex macos startup failure: unsupported feature enablement `workspace_dependencies`
+19223	app_server	codex desktop will not boot up on mac os arm
+19225	app_server	vs code remote-ssh: codex panel intermittently hangs before prompt submission; bundled cli works; logs show error: not-connected at va.sendbroadcast
+19251	browser	windows app: browser use is packaged and feature-flagged but not exposed in ui or plugin marketplace
+19271	browser	windows codex app: bundled node.exe fails with access is denied, breaking node repl and browser use plugin
+19279	app_server	experimental feature check disabling app startup
+19365	browser	windows codex app: browser use unavailable because node repl tool is not exposed
+19368	browser	can not use browser use on windows + wsl due to lack of repl js tool
+19429	browser	browser use in-app browser screenshots capture the wrong region
+19463	browser	browser use cannot discover codex in-app browser backend
+19621	browser	browser address bar shrinking until gone
+19667	browser	browser use iab backend unavailable when project root is $home, but works in subdirectories
+19766	browser	codex desktop automations cannot use browser use plugin
+19886	browser	implement chromium extension support for integrated browser
+20146	browser	full page screenshots within app browser
+20236	browser	codex desktop in-app browser panel width is shared across projects
+20307	browser	codex app in-app browser does not render iframes on localhost
+20315	browser	browser-use (browser-client.mjs) marked as trojan by windows defender
+20371	browser	browser plugin missing

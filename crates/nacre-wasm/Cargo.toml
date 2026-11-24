@@ -1,0 +1,12 @@
+[package]
+name = "nacre-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "zero-dep wasm32-unknown-unknown build of the nacre deterministic cell kernel"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+nacre-core = { path = "../nacre-core" }

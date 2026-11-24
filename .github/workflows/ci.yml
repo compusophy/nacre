@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: test workspace (zero external deps, #![no_std], #![forbid(unsafe_code)])
+        run: cargo test --workspace
+      - name: build wasm32-unknown-unknown release
+        run: cargo build -p nacre-wasm --target wasm32-unknown-unknown --release
+      - name: run 3-domain hill-climb & openai/codex benchmark
+        run: cargo run --release -p nacre-cli -- bench
+      - name: run security control matrix & pt-mcmc co-evolution
+        run: |
+          cargo run --release -p nacre-cli -- security-bench
+          cargo run --release -p nacre-cli -- coev
