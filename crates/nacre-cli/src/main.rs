@@ -36,6 +36,7 @@ fn main() {
         "coev" => cmd_coev(),
         "security-bench" => cmd_security_bench(),
         "live-matrix" => live::run_live_matrix(&args[1..]),
+        "live-inject" => live::run_live_inject(&args[1..]),
         "demo" => cmd_demo(),
         "run" => cmd_run(&args[1..]),
         "caps" => cmd_caps(&args[1..]),
@@ -76,6 +77,9 @@ commands:
 
   nacre live-matrix [--models google/gemini-4-hydrogen,google/gemini-4-neon] [--dry-run]
       pure-rust live cross-model naked-control vs defended matrix (zero node/js)
+
+  nacre live-inject [--models ...]
+      live indirect prompt-injection benchmark: conventional tool harness vs nacre handle firewall
 
   nacre demo
       run the full end-to-end demo:

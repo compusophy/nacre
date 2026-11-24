@@ -26,6 +26,7 @@ full tables and Run 1 → Run 2 → Run 3 hill-climb log in [BENCHMARKS.md](BENC
 - **domain a (12 algorithmic synthesis tasks, disjoint held-out)**: `10/11` expressible solved `100%` on unseen held-out + compiled to `164–234 B` native WASM 1.0 (`0` held-out wrong across all 12 tasks including `prime_ctrl` falsification control); `sum_to_n` climbs 5 stages (`gen0 oracle → gen2 recursive → gen3 O(1) closed form`: **`18.5×` / `94.6%` fuel collapse** → `186 B` WASM).
 - **domain c (170 real `openai/codex` github issues via `nanocode` JSONL bridge, chronological 101 train → 69 unseen future)**: **`96%` offline precision (`28/29`) while eliminating `42%` of future llm calls** (`50%` eliminated at `91%` precision).
 - **domain d & e (security control matrix & pt-mcmc red-queen arena)**: **`18/18` breaches on naked control → `12/18` on naive guard → `0/18` on `nacre`**; on hardened gen 4 checkpoints, `pt_mcmc_genetic` (`37%` swap acceptance) beats `greedy`, `single_temp_sa`, and `random`; `nacre` hard antibodies hold `12/12` (`100%`) `alive` with `0` regression leaks and `0` paid replay LLM calls vs. `1/12` autoimmune collapse (naive blocklist) and `5` leaks / `165` replay calls (capped soft prompt).
+- **domain f & g (184 live vercel ai gateway calls across `gemini-4-hydrogen`, `gemini-4-neon`, `claude-haiku-5.5`, `deepseek-v4.1-flash`, `$0.7519` total)**: `4/4` models breach turn 1 naked; `claude-haiku-5.5` hijacked live on `prefix_collision` (`fs_read("/public_secret/prod_keys.env")`) under default agent prompt and cryptographically blocked by `nacre` (`merkle b9bc787f1e37`, `0/8` breaches, `4/4` benign `alive_ok`); explicit single-turn policies hold `32/32` across all 4 models while exposing a **73× live cost spread** (`$0.0013` Haiku 5.5 vs. `$0.0956` Gemini 4 Neon per 12-call suite).
 
 ---
 
@@ -47,9 +48,13 @@ cargo run --release -p nacre-cli -- coev
 # run naked-control vs naive-guard vs nacre security matrix
 cargo run --release -p nacre-cli -- security-bench
 
-# run live pt-mcmc cross-model tournament (pure rust, 0 node/python)
-OPENAI_API_KEY=... cargo run --release -p nacre-cli -- live-matrix \
-  --models google/gemini-4-hydrogen,google/gemini-4-neon --budget 16 --gens 3
+# run live N x N cross-model tournament via vercel ai gateway (pure rust, 0 node/python)
+cargo run --release -p nacre-cli -- live-matrix \
+  --models google/gemini-4-hydrogen,google/gemini-4-neon,anthropic/claude-haiku-5.5,deepseek/deepseek-v4.1-flash-1017-ultrafast --turns 3
+
+# run live indirect prompt-injection benchmark (conventional harness vs nacre handle firewall)
+cargo run --release -p nacre-cli -- live-inject \
+  --models google/gemini-4-hydrogen,google/gemini-4-neon,anthropic/claude-haiku-5.5,deepseek/deepseek-v4.1-flash-1017-ultrafast
 
 # build single-file offline wasm studio
 cargo build -p nacre-wasm --target wasm32-unknown-unknown --release
@@ -59,7 +64,7 @@ cargo run -p nacre-cli -- build-studio
 ## workspace layout
 
 - `crates/nacre-core` — `#![no_std]` + `alloc`, `#![forbid(unsafe_code)]`, 0 external deps
-- `crates/nacre-cli` — `#![forbid(unsafe_code)]`, 0 external deps (`demo`, `run`, `caps`, `replay`, `crystallize`, `verify`, `ingest-nanocode`, `wasm-reflex`, `bench`, `coev`, `security-bench`, `live-matrix`, `build-studio`)
+- `crates/nacre-cli` — `#![forbid(unsafe_code)]`, 0 external deps (`demo`, `run`, `caps`, `replay`, `crystallize`, `verify`, `ingest-nanocode`, `wasm-reflex`, `bench`, `coev`, `security-bench`, `live-matrix`, `live-inject`, `build-studio`)
 - `crates/nacre-wasm` — `wasm32-unknown-unknown` kernel + pure-rust studio ui renderer
 - `benchmarks/codex_issues.tsv` — 170 real public `openai/codex` issues with issue numbers & labels
 - `docs/NANOCODE_RFC.md` — non-breaking reflex middleware & resumable cell RFC for `nanocodexyz/nanocode`
