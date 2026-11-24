@@ -1,5 +1,8 @@
 /target
 studio/.vercel
+.env
+.env.*
+studio/.env*
 **/*.ntrace
 **/*.ncrystal
 **/*.wasm
