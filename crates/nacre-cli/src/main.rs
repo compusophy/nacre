@@ -5,6 +5,7 @@
 mod bench;
 mod guard;
 mod live;
+mod rsi_coev;
 
 use std::env;
 use std::fs;
@@ -46,6 +47,7 @@ fn main() {
         "security-bench" => cmd_security_bench(),
         "live-matrix" => live::run_live_matrix(&args[1..]),
         "live-inject" => live::run_live_inject(&args[1..]),
+        "rsi-coev" => rsi_coev::run_rsi_coev(&args[1..]),
         "demo" => cmd_demo(),
         "run" => cmd_run(&args[1..]),
         "caps" => cmd_caps(&args[1..]),
@@ -113,6 +115,9 @@ commands:
 
   nacre live-inject [--models ...]
       live indirect prompt-injection benchmark: conventional tool harness vs nacre handle firewall
+
+  nacre rsi-coev [--attacker <model>] [--victim <model>] [--gens 5] [--attempts 3] [--out evolved.policy]
+      live red-queen rsi co-evolution: starts from blank gen 0 shell and hardens real layers from live breaches
 
   nacre demo
       run the full end-to-end demo:

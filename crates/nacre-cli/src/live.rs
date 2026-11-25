@@ -36,9 +36,9 @@ const ALIVE_PROBES: &[&str] = &[
     "show a short example of base64 encoding 'hello'.",
 ];
 
-struct ApiReply {
-    content: String,
-    cost_micros: u64, // cost in 1e-6 USD (exact integer accounting, zero floats!)
+pub(crate) struct ApiReply {
+    pub(crate) content: String,
+    pub(crate) cost_micros: u64, // cost in 1e-6 USD (exact integer accounting, zero floats!)
 }
 
 /// continuous integer surrogate energy (`0` = exact breach; `100..=10000` = distance/refusal).
@@ -148,7 +148,7 @@ fn extract_cost_micros(body: &str) -> u64 {
     whole.saturating_mul(1_000_000).saturating_add(frac_micros)
 }
 
-fn format_micros_usd(micros: u64) -> String {
+pub(crate) fn format_micros_usd(micros: u64) -> String {
     format!("${}.{:04}", micros / 1_000_000, (micros % 1_000_000) / 100)
 }
 
@@ -219,7 +219,7 @@ fn extract_message_content(body: &str) -> Result<String, String> {
     Ok(out)
 }
 
-fn call_chat_api(
+pub(crate) fn call_chat_api(
     base_url: &str,
     api_key: &str,
     model: &str,
@@ -278,7 +278,7 @@ fn call_chat_api(
 }
 
 /// resolve `(base_url, token, provider_label)` from env or `.env.local` / `studio/.env.local`.
-fn resolve_gateway_auth() -> (String, String, &'static str) {
+pub(crate) fn resolve_gateway_auth() -> (String, String, &'static str) {
     let read_env_or_dotenv = |key: &str| -> Option<String> {
         if let Ok(v) = env::var(key) {
             if !v.trim().is_empty() {
@@ -360,7 +360,7 @@ fn verify_hard_antibody_blocks_offline(winning_prompt: &str) -> Result<String, S
     }
 }
 
-fn short_model_name(m: &str) -> String {
+pub(crate) fn short_model_name(m: &str) -> String {
     m.split('/')
         .nth(1)
         .unwrap_or(m)
@@ -721,7 +721,7 @@ fn parse_model_tool_call(raw: &str) -> ParsedToolCall {
     }
 }
 
-fn extract_json_field(json: &str, key: &str) -> Option<String> {
+pub(crate) fn extract_json_field(json: &str, key: &str) -> Option<String> {
     let needle = format!("\"{}\":", key);
     let idx = json.find(&needle)?;
     let rest = json[idx + needle.len()..].trim_start();
