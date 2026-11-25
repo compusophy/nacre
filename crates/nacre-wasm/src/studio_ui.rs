@@ -69,28 +69,28 @@ const FW_PRESETS: &[FwPreset] = &[
         arg: "/public_secret/prod_keys.env",
     },
     FwPreset {
-        id: "path_traversal",
-        label: "dotdot traversal",
-        tool: "fs_read",
-        arg: "/public/../.env",
-    },
-    FwPreset {
         id: "bash_rm",
         label: "bash rm -rf",
         tool: "bash",
         arg: "rm -rf /",
     },
     FwPreset {
-        id: "code_inject",
-        label: "code injection",
-        tool: "inject_reply",
-        arg: "(perform exfil \"prod_token\")",
-    },
-    FwPreset {
         id: "benign_readme",
         label: "allowed read",
         tool: "fs_read",
         arg: "/public/readme.md",
+    },
+    FwPreset {
+        id: "reflex_hit",
+        label: "cached reflex (0 llm)",
+        tool: "reflex",
+        arg: "oauth token refresh fails on safari",
+    },
+    FwPreset {
+        id: "code_inject",
+        label: "code injection",
+        tool: "inject_reply",
+        arg: "(perform exfil \"prod_token\")",
     },
 ];
 
@@ -306,8 +306,8 @@ impl StudioState {
             repl_caps: String::from("pure offline (0 caps)"),
             repl_out: String::new(),
         };
-        st.eval_firewall();
         st.init_reflex();
+        st.eval_firewall();
         st.init_seal();
         st.run_repl();
         st
@@ -399,6 +399,20 @@ impl StudioState {
     }
 
     fn eval_firewall(&mut self) {
+        if self.fw_tool == "reflex" {
+            self.reflex_query = self.fw_arg.clone();
+            self.eval_reflex();
+            self.fw_nacre_status = if self.reflex_hit { "reflex_hit" } else { "escalated" };
+            self.fw_nacre_expr = if self.reflex_hit {
+                format!("(reflex_hit {} · 0 llm calls)", self.reflex_label)
+            } else {
+                String::from("(yield llm_triage · unseen pattern)")
+            };
+            self.fw_merkle = sha256(self.fw_nacre_expr.as_bytes()).short_hex();
+            self.fw_fuel = self.reflex_fuel;
+            return;
+        }
+
         let mut arena = Arena::new();
         let mut lex = Lexicon::new();
         if lex.load_source(&mut arena, FW_LEX).is_err() {
@@ -794,63 +808,31 @@ impl StudioState {
     }
 
     fn render_overview(&self, h: &mut String) {
-        // hero: < 25 words total — title, 1-line analogy, crisp svg diagram, 1 install bar
-        h.push_str(
-            "<section class=\"hero-beat\">\
-              <h1 class=\"hero-title\">jit compiler and syscall firewall for ai agents.</h1>\
-              <p class=\"hero-copy\">blocks bad tool calls before they touch disk. compiles repeated llm work into 186-byte offline wasm.</p>\
-              <div class=\"diagram-box\">\
-                <svg viewBox=\"0 0 820 228\" width=\"100%\" height=\"auto\" xmlns=\"http://www.w3.org/2000/svg\" aria-label=\"nacre architecture\">\
-                  <rect x=\"12\" y=\"52\" width=\"190\" height=\"86\" fill=\"#111111\" stroke=\"#2b2b2b\" stroke-width=\"1\"/>\
-                  <text x=\"30\" y=\"84\" fill=\"#ecece6\" font-family=\"monospace\" font-size=\"14\" font-weight=\"600\">agent</text>\
-                  <text x=\"30\" y=\"107\" fill=\"#7a7a72\" font-family=\"monospace\" font-size=\"11\">claude · cursor · codex</text>\
-                  <text x=\"30\" y=\"123\" fill=\"#7a7a72\" font-family=\"monospace\" font-size=\"11\">any mcp client</text>\
-                  <line x1=\"202\" y1=\"95\" x2=\"282\" y2=\"95\" stroke=\"#4a4a44\" stroke-width=\"1\"/>\
-                  <polygon points=\"282,91 290,95 282,99\" fill=\"#8a8a82\"/>\
-                  <text x=\"215\" y=\"84\" fill=\"#7a7a72\" font-family=\"monospace\" font-size=\"10.5\">tool call</text>\
-                  <rect x=\"292\" y=\"36\" width=\"232\" height=\"118\" fill=\"#151515\" stroke=\"#ecece6\" stroke-width=\"1.2\"/>\
-                  <text x=\"312\" y=\"67\" fill=\"#ecece6\" font-family=\"monospace\" font-size=\"15\" font-weight=\"700\">nacre</text>\
-                  <text x=\"312\" y=\"91\" fill=\"#a0a098\" font-family=\"monospace\" font-size=\"11.5\">pure handle firewall</text>\
-                  <text x=\"312\" y=\"111\" fill=\"#a0a098\" font-family=\"monospace\" font-size=\"11.5\">sha-256 audit journal</text>\
-                  <text x=\"312\" y=\"131\" fill=\"#a0a098\" font-family=\"monospace\" font-size=\"11.5\">offline reflex cache</text>\
-                  <polyline points=\"524,72 568,72 568,48 606,48\" fill=\"none\" stroke=\"#e5484d\" stroke-width=\"1\"/>\
-                  <polygon points=\"606,44 614,48 606,52\" fill=\"#e5484d\"/>\
-                  <rect x=\"616\" y=\"18\" width=\"192\" height=\"60\" fill=\"#140d0e\" stroke=\"#522426\" stroke-width=\"1\"/>\
-                  <text x=\"632\" y=\"44\" fill=\"#e5484d\" font-family=\"monospace\" font-size=\"13\" font-weight=\"600\">blocked</text>\
-                  <text x=\"632\" y=\"63\" fill=\"#9b7a7c\" font-family=\"monospace\" font-size=\"10.5\">merkle proof · $0</text>\
-                  <polyline points=\"524,118 568,118 568,134 606,134\" fill=\"none\" stroke=\"#3fb97a\" stroke-width=\"1\"/>\
-                  <polygon points=\"606,130 614,134 606,138\" fill=\"#3fb97a\"/>\
-                  <rect x=\"616\" y=\"104\" width=\"192\" height=\"60\" fill=\"#0d1410\" stroke=\"#204a34\" stroke-width=\"1\"/>\
-                  <text x=\"632\" y=\"130\" fill=\"#3fb97a\" font-family=\"monospace\" font-size=\"13\" font-weight=\"600\">allowed</text>\
-                  <text x=\"632\" y=\"149\" fill=\"#789c88\" font-family=\"monospace\" font-size=\"10.5\">mcp · disk</text>\
-                  <polyline points=\"408,154 408,202 106,202 106,144\" fill=\"none\" stroke=\"#44443e\" stroke-width=\"1\" stroke-dasharray=\"4 4\"/>\
-                  <polygon points=\"102,146 106,138 110,146\" fill=\"#7a7a72\"/>\
-                  <rect x=\"188\" y=\"188\" width=\"186\" height=\"26\" fill=\"#0d0d0d\"/>\
-                  <text x=\"196\" y=\"205\" fill=\"#8e8e86\" font-family=\"monospace\" font-size=\"11\">hot paths → 186 b wasm</text>\
-                </svg>\
-              </div>\
-              <div class=\"cmd-bar\">\
-                <code class=\"mono\" id=\"cmd-install\">cargo install --path crates/nacre-cli &amp;&amp; nacre init --claude</code>\
-                <button class=\"copy-btn\" data-copy=\"cmd-install\">copy</button>\
-              </div>\
-            </section>",
-        );
-
-        // 01 firewall — zero paragraph, live wasm probe
+        // determine which lane of the live schematic lights up!
+        let (op_blk, op_ok, op_rfx, sw_blk, sw_ok, sw_rfx) = match self.fw_nacre_status {
+            "blocked" => ("1", "0.24", "0.24", "2.4", "1.2", "1.2"),
+            "reflex_hit" => ("0.24", "0.24", "1", "1.2", "1.2", "2.4"),
+            _ => ("0.24", "1", "0.24", "1.2", "2.4", "1.2"),
+        };
         let verdict_cls = match self.fw_nacre_status {
             "blocked" => "err",
+            "escalated" => "warn",
             _ => "ok",
         };
         let verdict_word = match self.fw_nacre_status {
             "blocked" => "blocked",
+            "reflex_hit" => "wasm reflex",
             "quoted_safe" => "auto-quoted",
+            "escalated" => "escalated",
             _ => "allowed",
         };
 
+        // HERO + LIVE INTERACTIVE SCHEMATIC AS ONE UNIFIED CENTERPIECE
         h.push_str(
-            "<section class=\"beat\">\
-              <div class=\"beat-k mono\">01 / firewall · live in wasm</div>\
-              <div class=\"widget\">\
+            "<section class=\"hero-beat\">\
+              <h1 class=\"hero-title\">jit compiler and syscall firewall for ai agents.</h1>\
+              <p class=\"hero-copy\">blocks bad tool calls before disk. compiles repeated llm calls into 186-byte offline wasm.</p>\
+              <div class=\"schematic-card\">\
                 <div class=\"tab-strip\">",
         );
         for p in FW_PRESETS {
@@ -862,7 +844,70 @@ impl StudioState {
         }
         h.push_str(&format!(
             "</div>\
-                <div class=\"widget-body\">\
+                <div class=\"diagram-stage\">\
+                  <svg viewBox=\"0 0 920 330\" width=\"100%\" height=\"auto\" xmlns=\"http://www.w3.org/2000/svg\" aria-label=\"live nacre schematic\">\
+                    <!-- agent node -->\
+                    <rect x=\"10\" y=\"96\" width=\"178\" height=\"112\" fill=\"#101010\" stroke=\"#363632\" stroke-width=\"1.2\"/>\
+                    <rect x=\"10\" y=\"96\" width=\"178\" height=\"26\" fill=\"#171715\" stroke=\"#363632\" stroke-width=\"1.2\"/>\
+                    <circle cx=\"24\" cy=\"109\" r=\"3\" fill=\"#66665f\"/>\
+                    <text x=\"35\" y=\"113\" fill=\"#8c8c84\" font-family=\"monospace\" font-size=\"10.5\">caller</text>\
+                    <text x=\"24\" y=\"152\" fill=\"#f2f2ec\" font-family=\"monospace\" font-size=\"20\" font-weight=\"700\">agent</text>\
+                    <text x=\"24\" y=\"174\" fill=\"#808078\" font-family=\"monospace\" font-size=\"11\">claude · codex</text>\
+                    <text x=\"24\" y=\"191\" fill=\"#66665f\" font-family=\"monospace\" font-size=\"10.5\">mcp client</text>\
+                    <!-- connector agent -> nacre -->\
+                    <line x1=\"188\" y1=\"152\" x2=\"282\" y2=\"152\" stroke=\"#8e8e86\" stroke-width=\"1.8\"/>\
+                    <circle cx=\"188\" cy=\"152\" r=\"3.5\" fill=\"#ecece6\"/>\
+                    <polygon points=\"282,147 292,152 282,157\" fill=\"#ecece6\"/>\
+                    <text x=\"206\" y=\"139\" fill=\"#a8a8a0\" font-family=\"monospace\" font-size=\"11\">tool call</text>\
+                    <!-- center nacre node -->\
+                    <rect x=\"294\" y=\"48\" width=\"246\" height=\"208\" fill=\"#131312\" stroke=\"#f0f0ea\" stroke-width=\"1.8\"/>\
+                    <rect x=\"294\" y=\"48\" width=\"246\" height=\"34\" fill=\"#ecece6\"/>\
+                    <text x=\"310\" y=\"70\" fill=\"#090909\" font-family=\"monospace\" font-size=\"15\" font-weight=\"700\">nacre</text>\
+                    <text x=\"434\" y=\"69\" fill=\"#444440\" font-family=\"monospace\" font-size=\"10.5\">no_std · 0 deps</text>\
+                    <rect x=\"310\" y=\"96\" width=\"214\" height=\"40\" fill=\"#0b0b0a\" stroke=\"#2b2b27\" stroke-width=\"1\"/>\
+                    <circle cx=\"324\" cy=\"116\" r=\"3.5\" fill=\"#e5484d\"/>\
+                    <text x=\"336\" y=\"120\" fill=\"#ecece6\" font-family=\"monospace\" font-size=\"13\">effect firewall</text>\
+                    <rect x=\"310\" y=\"146\" width=\"214\" height=\"40\" fill=\"#0b0b0a\" stroke=\"#2b2b27\" stroke-width=\"1\"/>\
+                    <circle cx=\"324\" cy=\"166\" r=\"3.5\" fill=\"#3fb97a\"/>\
+                    <text x=\"336\" y=\"170\" fill=\"#ecece6\" font-family=\"monospace\" font-size=\"13\">sha-256 journal</text>\
+                    <rect x=\"310\" y=\"196\" width=\"214\" height=\"40\" fill=\"#0b0b0a\" stroke=\"#383832\" stroke-width=\"1\"/>\
+                    <circle cx=\"324\" cy=\"216\" r=\"3.5\" fill=\"#ecece6\"/>\
+                    <text x=\"336\" y=\"220\" fill=\"#ecece6\" font-family=\"monospace\" font-size=\"13\">wasm 1.0 jit</text>\
+                    <!-- top lane: blocked -->\
+                    <g opacity=\"{}\">\
+                      <polyline points=\"540,108 598,108 598,60 648,60\" fill=\"none\" stroke=\"#e5484d\" stroke-width=\"{}\"/>\
+                      <circle cx=\"540\" cy=\"108\" r=\"3.5\" fill=\"#e5484d\"/>\
+                      <polygon points=\"648,55 658,60 648,65\" fill=\"#e5484d\"/>\
+                      <rect x=\"660\" y=\"22\" width=\"248\" height=\"76\" fill=\"#160c0d\" stroke=\"#7a2a2e\" stroke-width=\"1.4\"/>\
+                      <text x=\"678\" y=\"54\" fill=\"#e5484d\" font-family=\"monospace\" font-size=\"19\" font-weight=\"700\">blocked</text>\
+                      <text x=\"678\" y=\"78\" fill=\"#b48a8c\" font-family=\"monospace\" font-size=\"11.5\">.env · .. · rm -rf · $0</text>\
+                    </g>\
+                    <!-- mid lane: allowed -->\
+                    <g opacity=\"{}\">\
+                      <line x1=\"540\" y1=\"160\" x2=\"648\" y2=\"160\" stroke=\"#3fb97a\" stroke-width=\"{}\"/>\
+                      <circle cx=\"540\" cy=\"160\" r=\"3.5\" fill=\"#3fb97a\"/>\
+                      <polygon points=\"648,155 658,160 648,165\" fill=\"#3fb97a\"/>\
+                      <rect x=\"660\" y=\"122\" width=\"248\" height=\"76\" fill=\"#0c1611\" stroke=\"#245c3e\" stroke-width=\"1.4\"/>\
+                      <text x=\"678\" y=\"154\" fill=\"#3fb97a\" font-family=\"monospace\" font-size=\"19\" font-weight=\"700\">allowed</text>\
+                      <text x=\"678\" y=\"178\" fill=\"#82ab94\" font-family=\"monospace\" font-size=\"11.5\">mcp server · local disk</text>\
+                    </g>\
+                    <!-- bottom lane: wasm reflex -->\
+                    <g opacity=\"{}\">\
+                      <polyline points=\"540,214 598,214 598,260 648,260\" fill=\"none\" stroke=\"#ecece6\" stroke-width=\"{}\"/>\
+                      <circle cx=\"540\" cy=\"214\" r=\"3.5\" fill=\"#ecece6\"/>\
+                      <polygon points=\"648,255 658,260 648,265\" fill=\"#ecece6\"/>\
+                      <rect x=\"660\" y=\"222\" width=\"248\" height=\"76\" fill=\"#151513\" stroke=\"#5c5c54\" stroke-width=\"1.4\"/>\
+                      <text x=\"678\" y=\"254\" fill=\"#f2f2ec\" font-family=\"monospace\" font-size=\"19\" font-weight=\"700\">wasm reflex</text>\
+                      <text x=\"678\" y=\"278\" fill=\"#a8a8a0\" font-family=\"monospace\" font-size=\"11.5\">0 llm calls · 186 bytes</text>\
+                    </g>\
+                    <!-- feedback loop -->\
+                    <polyline points=\"417,256 417,308 99,308 99,218\" fill=\"none\" stroke=\"#4e4e47\" stroke-width=\"1.2\" stroke-dasharray=\"5 5\"/>\
+                    <polygon points=\"94,220 99,210 104,220\" fill=\"#9a9a92\"/>\
+                    <rect x=\"176\" y=\"295\" width=\"164\" height=\"24\" fill=\"#0a0a0a\" stroke=\"#232320\" stroke-width=\"1\"/>\
+                    <text x=\"188\" y=\"311\" fill=\"#a8a8a0\" font-family=\"monospace\" font-size=\"11\">hot paths compile away</text>\
+                  </svg>\
+                </div>\
+                <div class=\"sim-foot\">\
                   <div class=\"input-row\">\
                     <span class=\"tool-pill mono\">{}</span>\
                     <input class=\"inp mono\" id=\"fw-arg-in\" type=\"text\" value=\"{}\" data-enter=\"fw_run\" data-tool=\"{}\">\
@@ -874,9 +919,15 @@ impl StudioState {
                     <span class=\"verdict-meta mono\">merkle {} · {} fuel</span>\
                   </div>\
                 </div>\
-                <details class=\"drawer\"><summary>policy source</summary><pre class=\"code\">{}</pre></details>\
+              </div>\
+              <div class=\"cmd-bar\" style=\"margin-top:20px;\">\
+                <code class=\"mono\" id=\"cmd-install\">cargo install --path crates/nacre-cli &amp;&amp; nacre init --claude</code>\
+                <button class=\"copy-btn\" data-copy=\"cmd-install\">copy</button>\
               </div>\
             </section>",
+            op_blk, sw_blk,
+            op_ok, sw_ok,
+            op_rfx, sw_rfx,
             esc_html(&self.fw_tool),
             esc_html(&self.fw_arg),
             esc_html(&self.fw_tool),
@@ -886,76 +937,30 @@ impl StudioState {
             esc_html(&self.fw_nacre_expr),
             esc_html(&self.fw_merkle),
             self.fw_fuel,
-            esc_html(FW_LEX),
         ));
 
-        // 02 reflex — two stark numbers + live 1-line query strip
-        h.push_str(&format!(
+        // SECTION 01: THREE VERIFIED NUMBERS
+        h.push_str(
             "<section class=\"beat\">\
-              <div class=\"beat-k mono\">02 / reflex compiler · live in wasm</div>\
-              <div class=\"two-up\">\
+              <div class=\"beat-k mono\">01 / measured</div>\
+              <div class=\"three-up\">\
+                <div class=\"story-card\">\
+                  <div class=\"big-stat mono ok\">0 / 18</div>\
+                  <div class=\"card-k mono\">structural breaches (naked: 18/18)</div>\
+                </div>\
                 <div class=\"story-card\">\
                   <div class=\"big-stat mono ok\">-42%</div>\
-                  <div class=\"card-k mono\">llm calls · 96% prec · 170 openai/codex issues</div>\
+                  <div class=\"card-k mono\">llm calls · 96% prec · openai/codex</div>\
                 </div>\
                 <div class=\"story-card\">\
                   <div class=\"big-stat mono\">186 b</div>\
-                  <div class=\"card-k mono\">wasm 1.0 · 18.5x less fuel · <button class=\"link-btn\" data-act=\"page\" data-val=\"compiler\">try compiler →</button></div>\
-                </div>\
-              </div>\
-              <div class=\"widget\" style=\"margin-top:16px;\">\
-                <div class=\"tab-strip\">\
-                  <button class=\"tab-item\" data-act=\"reflex_run\" data-val=\"oauth token refresh fails on safari\">oauth issue</button>\
-                  <button class=\"tab-item\" data-act=\"reflex_run\" data-val=\"browser tab crashes on scroll\">browser issue</button>\
-                  <button class=\"tab-item\" data-act=\"reflex_run\" data-val=\"enterprise billing question\">unseen (escalate)</button>\
-                </div>\
-                <div class=\"widget-body\">\
-                  <div class=\"input-row\">\
-                    <input class=\"inp mono\" id=\"rfx-in\" type=\"text\" value=\"{}\" data-enter=\"reflex_run\">\
-                    <button class=\"act-btn primary\" data-act=\"reflex_run\" data-from=\"rfx-in\">query</button>\
-                  </div>\
-                  <div class=\"verdict-strip\">\
-                    <span class=\"verdict-pill mono {}\">{}</span>\
-                    <code class=\"verdict-expr mono\">{}</code>\
-                    <span class=\"verdict-meta mono\">{} fuel · {}</span>\
-                  </div>\
+                  <div class=\"card-k mono\">wasm 1.0 · <button class=\"link-btn\" data-act=\"page\" data-val=\"compiler\">try compiler →</button></div>\
                 </div>\
               </div>\
             </section>",
-            esc_html(&self.reflex_query),
-            if self.reflex_hit { "ok" } else { "warn" },
-            if self.reflex_hit { "offline hit" } else { "escalated" },
-            esc_html(&self.reflex_label),
-            self.reflex_fuel,
-            if self.reflex_hit { "0 llm calls" } else { "ask llm" },
-        ));
+        );
 
-        // 03 seal — 1 strip
-        let seal_cls = if self.seal_ok { "ok" } else { "err" };
-        let seal_btn = if self.seal_tampered {
-            "<button class=\"act-btn\" data-act=\"seal_restore\">restore</button>"
-        } else {
-            "<button class=\"act-btn danger\" data-act=\"seal_tamper\">flip 1 byte</button>"
-        };
-        h.push_str(&format!(
-            "<section class=\"beat\">\
-              <div class=\"beat-k mono\">03 / .ncrystal sha-256 seal</div>\
-              <div class=\"seal-strip\">\
-                <div class=\"seal-left\">\
-                  <span class=\"verdict-pill mono {}\">{}</span>\
-                  <span class=\"mono {}\">{}</span>\
-                </div>\
-                <div>{}</div>\
-              </div>\
-            </section>",
-            seal_cls,
-            if self.seal_ok { "verified" } else { "rejected" },
-            seal_cls,
-            esc_html(&self.seal_msg),
-            seal_btn,
-        ));
-
-        // 04 setup — 3-tab copyable config
+        // SECTION 02: DROP INTO YOUR STACK + SEAL
         let (snippet_id, snippet_code) = match self.setup_tab {
             "mcp" => (
                 "code-mcp",
@@ -970,10 +975,16 @@ impl StudioState {
                 "nacre init --claude\nnacre test-policy --policy nacre.policy\nnacre audit-summary .nacre-audit.jsonl",
             ),
         };
+        let seal_cls = if self.seal_ok { "ok" } else { "err" };
+        let seal_btn = if self.seal_tampered {
+            "<button class=\"act-btn\" data-act=\"seal_restore\">restore</button>"
+        } else {
+            "<button class=\"act-btn danger\" data-act=\"seal_tamper\">flip 1 byte</button>"
+        };
 
         h.push_str(&format!(
             "<section class=\"beat\">\
-              <div class=\"beat-k mono\">04 / install</div>\
+              <div class=\"beat-k mono\">02 / install</div>\
               <div class=\"widget\">\
                 <div class=\"tab-strip\">\
                   <button class=\"tab-item {}\" data-act=\"setup_tab\" data-val=\"claude\">claude code</button>\
@@ -986,6 +997,13 @@ impl StudioState {
                   <pre class=\"code clean\" id=\"{}\">{}</pre>\
                 </div>\
               </div>\
+              <div class=\"seal-strip\" style=\"margin-top:16px;\">\
+                <div class=\"seal-left\">\
+                  <span class=\"verdict-pill mono {}\">{}</span>\
+                  <span class=\"mono {}\">{}</span>\
+                </div>\
+                <div>{}</div>\
+              </div>\
             </section>",
             if self.setup_tab == "claude" { "active" } else { "" },
             if self.setup_tab == "mcp" { "active" } else { "" },
@@ -993,6 +1011,11 @@ impl StudioState {
             snippet_id,
             snippet_id,
             esc_html(snippet_code),
+            seal_cls,
+            if self.seal_ok { "verified" } else { "rejected" },
+            seal_cls,
+            esc_html(&self.seal_msg),
+            seal_btn,
         ));
     }
 
@@ -1341,11 +1364,12 @@ mod tests {
         assert_strict_lowercase(&h_bash);
         assert!(h_bash.contains("blocked"));
 
-        let h_rfx_hit = dispatch_ui_event("reflex_run\noauth refresh broken");
+        let h_rfx_hit = dispatch_ui_event("fw_preset\nreflex_hit");
         assert_strict_lowercase(&h_rfx_hit);
-        assert!(h_rfx_hit.contains("offline hit"));
+        assert!(h_rfx_hit.contains("wasm reflex"));
+        assert!(h_rfx_hit.contains("reflex_hit auth"));
 
-        let h_rfx_esc = dispatch_ui_event("reflex_run\nenterprise pricing");
+        let h_rfx_esc = dispatch_ui_event("fw_run\nreflex\tenterprise pricing");
         assert_strict_lowercase(&h_rfx_esc);
         assert!(h_rfx_esc.contains("escalated"));
 

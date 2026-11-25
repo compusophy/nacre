@@ -50,21 +50,28 @@
   .nav-btn.active { color: var(--ink); border-bottom-color: var(--ink); }
   .ext-links { font-family: var(--mono); font-size: 12px; }
 
-  /* calm editorial homepage flow (one beat at a time) */
-  .story { max-width: 820px; margin: 0 auto; padding: 72px 24px 96px; }
-  .hero-beat { padding-bottom: 72px; }
+  /* calm editorial homepage flow (one unified interactive schematic centerpiece) */
+  .story { max-width: 920px; margin: 0 auto; padding: 52px 24px 88px; }
+  .hero-beat { padding-bottom: 56px; }
   .hero-title {
-    margin: 0 0 18px; font-size: 35px; font-weight: 500;
-    letter-spacing: -0.028em; line-height: 1.14; color: var(--ink); max-width: 760px;
+    margin: 0 0 12px; font-size: 36px; font-weight: 500;
+    letter-spacing: -0.028em; line-height: 1.14; color: var(--ink); max-width: 820px;
   }
   .hero-copy {
-    margin: 0 0 38px; font-size: 15.5px; line-height: 1.65;
-    color: var(--ink-2); max-width: 610px;
+    margin: 0 0 28px; font-size: 15px; line-height: 1.55;
+    color: var(--ink-2); max-width: 680px;
   }
-  .diagram-box {
-    border: 1px solid var(--line); background: var(--inset);
-    padding: 22px 20px 16px; margin-bottom: 28px;
+  .schematic-card { border: 1px solid var(--line-strong); background: var(--surface); }
+  .diagram-stage {
+    padding: 24px 20px 16px;
+    background-color: #090909;
+    background-image: radial-gradient(#1f1f1d 1px, transparent 1px);
+    background-size: 22px 22px;
+    border-bottom: 1px solid var(--line);
   }
+  .sim-foot { padding: 16px 20px 18px; background: var(--surface); }
+  .three-up { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 820px) { .three-up { grid-template-columns: 1fr; } }
   .cmd-bar {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     border: 1px solid var(--line-strong); background: var(--surface); padding: 11px 14px;
