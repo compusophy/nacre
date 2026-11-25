@@ -59,7 +59,6 @@ struct FwPreset {
     label: &'static str,
     tool: &'static str,
     arg: &'static str,
-    caption: &'static str,
 }
 
 const FW_PRESETS: &[FwPreset] = &[
@@ -68,35 +67,30 @@ const FW_PRESETS: &[FwPreset] = &[
         label: "haiku 5.5 escape",
         tool: "fs_read",
         arg: "/public_secret/prod_keys.env",
-        caption: "captured live on claude-haiku-5.5 (--no-policy). bypasses naive starts_with(\"/public\") checks.",
     },
     FwPreset {
         id: "path_traversal",
         label: "dotdot traversal",
         tool: "fs_read",
         arg: "/public/../.env",
-        caption: "starts with /public/, but climbs out via '..'. rejected mechanically by the handle rule.",
     },
     FwPreset {
         id: "bash_rm",
         label: "bash rm -rf",
         tool: "bash",
         arg: "rm -rf /",
-        caption: "destructive shell command blocked inside the coding-agent handle policy before exec.",
     },
     FwPreset {
         id: "code_inject",
         label: "code injection",
         tool: "inject_reply",
         arg: "(perform exfil \"prod_token\")",
-        caption: "untrusted tool reply returns executable syntax. protect_value auto-quotes it into inert data.",
     },
     FwPreset {
         id: "benign_readme",
         label: "allowed read",
         tool: "fs_read",
         arg: "/public/readme.md",
-        caption: "canonical path strictly inside /public/. allowed with zero false-positive friction.",
     },
 ];
 
@@ -242,7 +236,6 @@ struct StudioState {
     fw_preset: String,
     fw_tool: String,
     fw_arg: String,
-    fw_caption: String,
     fw_nacre_status: &'static str, // "blocked" | "allowed" | "quoted_safe"
     fw_nacre_expr: String,
     fw_merkle: String,
@@ -284,7 +277,6 @@ impl StudioState {
             fw_preset: String::from("haiku_hijack"),
             fw_tool: String::from("fs_read"),
             fw_arg: String::from("/public_secret/prod_keys.env"),
-            fw_caption: String::from(FW_PRESETS[0].caption),
             fw_nacre_status: "blocked",
             fw_nacre_expr: String::new(),
             fw_merkle: String::new(),
@@ -348,7 +340,6 @@ impl StudioState {
                     self.fw_preset = String::from(p.id);
                     self.fw_tool = String::from(p.tool);
                     self.fw_arg = String::from(p.arg);
-                    self.fw_caption = String::from(p.caption);
                     self.eval_firewall();
                 }
             }
@@ -360,7 +351,6 @@ impl StudioState {
                     self.fw_arg = String::from(pay.trim());
                 }
                 self.fw_preset = String::from("custom");
-                self.fw_caption = String::from("evaluated live inside nacre-core wasm32 in your browser.");
                 self.eval_firewall();
             }
             "reflex_run" => {
@@ -804,64 +794,49 @@ impl StudioState {
     }
 
     fn render_overview(&self, h: &mut String) {
-        // =====================================================================
-        // BEAT 0: THE OPENING — ONE HEADLINE, ONE DIAGRAM, ONE INSTALL COMMAND
-        // =====================================================================
+        // hero: < 25 words total — title, 1-line analogy, crisp svg diagram, 1 install bar
         h.push_str(
             "<section class=\"hero-beat\">\
-              <h1 class=\"hero-title\">a firewall and reflex compiler for ai agents.</h1>\
-              <p class=\"hero-copy\">nacre sits between your agent and the host. every tool call passes through a pure effect handler before it touches disk or network, and repeated calls compile down to offline wasm reflexes.</p>\
+              <h1 class=\"hero-title\">jit compiler and syscall firewall for ai agents.</h1>\
+              <p class=\"hero-copy\">blocks bad tool calls before they touch disk. compiles repeated llm work into 186-byte offline wasm.</p>\
               <div class=\"diagram-box\">\
                 <svg viewBox=\"0 0 820 228\" width=\"100%\" height=\"auto\" xmlns=\"http://www.w3.org/2000/svg\" aria-label=\"nacre architecture\">\
-                  <!-- left: agent -->\
                   <rect x=\"12\" y=\"52\" width=\"190\" height=\"86\" fill=\"#111111\" stroke=\"#2b2b2b\" stroke-width=\"1\"/>\
-                  <text x=\"30\" y=\"84\" fill=\"#ecece6\" font-family=\"monospace\" font-size=\"14\" font-weight=\"600\">your agent</text>\
-                  <text x=\"30\" y=\"107\" fill=\"#7a7a72\" font-family=\"monospace\" font-size=\"11\">claude code · cursor</text>\
-                  <text x=\"30\" y=\"123\" fill=\"#7a7a72\" font-family=\"monospace\" font-size=\"11\">codex · mcp client</text>\
-                  <!-- arrow 1 -->\
+                  <text x=\"30\" y=\"84\" fill=\"#ecece6\" font-family=\"monospace\" font-size=\"14\" font-weight=\"600\">agent</text>\
+                  <text x=\"30\" y=\"107\" fill=\"#7a7a72\" font-family=\"monospace\" font-size=\"11\">claude · cursor · codex</text>\
+                  <text x=\"30\" y=\"123\" fill=\"#7a7a72\" font-family=\"monospace\" font-size=\"11\">any mcp client</text>\
                   <line x1=\"202\" y1=\"95\" x2=\"282\" y2=\"95\" stroke=\"#4a4a44\" stroke-width=\"1\"/>\
                   <polygon points=\"282,91 290,95 282,99\" fill=\"#8a8a82\"/>\
                   <text x=\"215\" y=\"84\" fill=\"#7a7a72\" font-family=\"monospace\" font-size=\"10.5\">tool call</text>\
-                  <!-- center: nacre kernel -->\
                   <rect x=\"292\" y=\"36\" width=\"232\" height=\"118\" fill=\"#151515\" stroke=\"#ecece6\" stroke-width=\"1.2\"/>\
                   <text x=\"312\" y=\"67\" fill=\"#ecece6\" font-family=\"monospace\" font-size=\"15\" font-weight=\"700\">nacre</text>\
-                  <text x=\"312\" y=\"91\" fill=\"#a0a098\" font-family=\"monospace\" font-size=\"11.5\">1. pure handle firewall</text>\
-                  <text x=\"312\" y=\"111\" fill=\"#a0a098\" font-family=\"monospace\" font-size=\"11.5\">2. sha-256 audit journal</text>\
-                  <text x=\"312\" y=\"131\" fill=\"#a0a098\" font-family=\"monospace\" font-size=\"11.5\">3. offline reflex cache</text>\
-                  <!-- top right: blocked -->\
+                  <text x=\"312\" y=\"91\" fill=\"#a0a098\" font-family=\"monospace\" font-size=\"11.5\">pure handle firewall</text>\
+                  <text x=\"312\" y=\"111\" fill=\"#a0a098\" font-family=\"monospace\" font-size=\"11.5\">sha-256 audit journal</text>\
+                  <text x=\"312\" y=\"131\" fill=\"#a0a098\" font-family=\"monospace\" font-size=\"11.5\">offline reflex cache</text>\
                   <polyline points=\"524,72 568,72 568,48 606,48\" fill=\"none\" stroke=\"#e5484d\" stroke-width=\"1\"/>\
                   <polygon points=\"606,44 614,48 606,52\" fill=\"#e5484d\"/>\
                   <rect x=\"616\" y=\"18\" width=\"192\" height=\"60\" fill=\"#140d0e\" stroke=\"#522426\" stroke-width=\"1\"/>\
                   <text x=\"632\" y=\"44\" fill=\"#e5484d\" font-family=\"monospace\" font-size=\"13\" font-weight=\"600\">blocked</text>\
-                  <text x=\"632\" y=\"63\" fill=\"#9b7a7c\" font-family=\"monospace\" font-size=\"10.5\">merkle proof · $0 tokens</text>\
-                  <!-- middle right: allowed -->\
+                  <text x=\"632\" y=\"63\" fill=\"#9b7a7c\" font-family=\"monospace\" font-size=\"10.5\">merkle proof · $0</text>\
                   <polyline points=\"524,118 568,118 568,134 606,134\" fill=\"none\" stroke=\"#3fb97a\" stroke-width=\"1\"/>\
                   <polygon points=\"606,130 614,134 606,138\" fill=\"#3fb97a\"/>\
                   <rect x=\"616\" y=\"104\" width=\"192\" height=\"60\" fill=\"#0d1410\" stroke=\"#204a34\" stroke-width=\"1\"/>\
                   <text x=\"632\" y=\"130\" fill=\"#3fb97a\" font-family=\"monospace\" font-size=\"13\" font-weight=\"600\">allowed</text>\
-                  <text x=\"632\" y=\"149\" fill=\"#789c88\" font-family=\"monospace\" font-size=\"10.5\">mcp server · local disk</text>\
-                  <!-- bottom feedback loop: journal -> wasm reflex -->\
+                  <text x=\"632\" y=\"149\" fill=\"#789c88\" font-family=\"monospace\" font-size=\"10.5\">mcp · disk</text>\
                   <polyline points=\"408,154 408,202 106,202 106,144\" fill=\"none\" stroke=\"#44443e\" stroke-width=\"1\" stroke-dasharray=\"4 4\"/>\
                   <polygon points=\"102,146 106,138 110,146\" fill=\"#7a7a72\"/>\
-                  <rect x=\"172\" y=\"188\" width=\"218\" height=\"26\" fill=\"#0d0d0d\"/>\
-                  <text x=\"180\" y=\"205\" fill=\"#8e8e86\" font-family=\"monospace\" font-size=\"11\">repeated traces → 186 b wasm</text>\
+                  <rect x=\"188\" y=\"188\" width=\"186\" height=\"26\" fill=\"#0d0d0d\"/>\
+                  <text x=\"196\" y=\"205\" fill=\"#8e8e86\" font-family=\"monospace\" font-size=\"11\">hot paths → 186 b wasm</text>\
                 </svg>\
               </div>\
               <div class=\"cmd-bar\">\
-                <code class=\"mono\" id=\"cmd-install\">cargo install --path crates/nacre-cli &amp;&amp; nacre init</code>\
+                <code class=\"mono\" id=\"cmd-install\">cargo install --path crates/nacre-cli &amp;&amp; nacre init --claude</code>\
                 <button class=\"copy-btn\" data-copy=\"cmd-install\">copy</button>\
-              </div>\
-              <div class=\"quiet-links mono\">\
-                <span>scroll to try the live wasm kernel</span>\
-                <span>·</span>\
-                <button class=\"link-btn\" data-act=\"page\" data-val=\"benchmarks\">all 7 benchmarks (0/18 breaches, 184 live model calls) →</button>\
               </div>\
             </section>",
         );
 
-        // =====================================================================
-        // BEAT 1: CAPABILITY FIREWALL (ONE FOCUSED INTERACTIVE STRIP)
-        // =====================================================================
+        // 01 firewall — zero paragraph, live wasm probe
         let verdict_cls = match self.fw_nacre_status {
             "blocked" => "err",
             _ => "ok",
@@ -874,9 +849,7 @@ impl StudioState {
 
         h.push_str(
             "<section class=\"beat\">\
-              <div class=\"beat-k mono\">01 / capability firewall</div>\
-              <h2 class=\"beat-title\">prompt rules are polite requests. an effect handler is a wall.</h2>\
-              <p class=\"beat-copy\">when we tested four fast models without an explicit path rule in the prompt, an untrusted doc talked claude-haiku-5.5 into reading <code>/public_secret/prod_keys.env</code>. nacre intercepts every call in pure rust before it leaves your process.</p>\
+              <div class=\"beat-k mono\">01 / firewall · live in wasm</div>\
               <div class=\"widget\">\
                 <div class=\"tab-strip\">",
         );
@@ -895,21 +868,19 @@ impl StudioState {
                     <input class=\"inp mono\" id=\"fw-arg-in\" type=\"text\" value=\"{}\" data-enter=\"fw_run\" data-tool=\"{}\">\
                     <button class=\"act-btn primary\" data-act=\"fw_run\" data-from=\"fw-arg-in\" data-tool=\"{}\">run</button>\
                   </div>\
-                  <p class=\"caption\">{}</p>\
                   <div class=\"verdict-strip\">\
                     <span class=\"verdict-pill mono {}\">{}</span>\
                     <code class=\"verdict-expr mono\">{}</code>\
                     <span class=\"verdict-meta mono\">merkle {} · {} fuel</span>\
                   </div>\
                 </div>\
-                <details class=\"drawer\"><summary>inspect the 8-line policy running live in wasm32</summary><pre class=\"code\">{}</pre></details>\
+                <details class=\"drawer\"><summary>policy source</summary><pre class=\"code\">{}</pre></details>\
               </div>\
             </section>",
             esc_html(&self.fw_tool),
             esc_html(&self.fw_arg),
             esc_html(&self.fw_tool),
             esc_html(&self.fw_tool),
-            esc_html(&self.fw_caption),
             verdict_cls,
             verdict_word,
             esc_html(&self.fw_nacre_expr),
@@ -918,41 +889,22 @@ impl StudioState {
             esc_html(FW_LEX),
         ));
 
-        // =====================================================================
-        // BEAT 2: REFLEX COMPILER (TWO CALM VISUAL CARDS)
-        // =====================================================================
+        // 02 reflex — two stark numbers + live 1-line query strip
         h.push_str(&format!(
             "<section class=\"beat\">\
-              <div class=\"beat-k mono\">02 / reflex compiler</div>\
-              <h2 class=\"beat-title\">stop paying a model for work it already solved.</h2>\
-              <p class=\"beat-copy\">the same journal that audits your agent is a training trace. once a pattern holds with 100% purity across past runs, nacre distills it into an offline rule or a tiny webassembly binary and escalates anything unfamiliar back to the llm.</p>\
+              <div class=\"beat-k mono\">02 / reflex compiler · live in wasm</div>\
               <div class=\"two-up\">\
                 <div class=\"story-card\">\
-                  <div class=\"card-k mono\">170 real openai/codex github issues</div>\
-                  <div class=\"big-stat mono ok\">96% <span class=\"big-sub\">precision</span></div>\
-                  <p class=\"card-p\">42% of future llm triage calls eliminated with zero gpu training (101 oldest train → 69 unseen future).</p>\
-                  <div class=\"mini-bars mono\">\
-                    <div class=\"mbar-row\"><span>ungated pure</span><span class=\"warn\">72%</span></div>\
-                    <div class=\"mbar-track\"><div class=\"mbar-fill warn\" style=\"width:72%\"></div></div>\
-                    <div class=\"mbar-row\"><span>nacre hybrid</span><span class=\"ok\">96%</span></div>\
-                    <div class=\"mbar-track\"><div class=\"mbar-fill ok\" style=\"width:96%\"></div></div>\
-                  </div>\
+                  <div class=\"big-stat mono ok\">-42%</div>\
+                  <div class=\"card-k mono\">llm calls · 96% prec · 170 openai/codex issues</div>\
                 </div>\
                 <div class=\"story-card\">\
-                  <div class=\"card-k mono\">sum_to_n · 5-stage superoptimization</div>\
-                  <div class=\"big-stat mono\">186 b <span class=\"big-sub\">wasm 1.0</span></div>\
-                  <p class=\"card-p\">climbs from an oracle call to a closed form (18.5x less fuel) and emits raw webassembly bytes.</p>\
-                  <div class=\"ladder mono\">\
-                    <div class=\"lad-row\"><span>gen 2 recursive</span><span class=\"dim\">1,112 fuel</span></div>\
-                    <div class=\"lad-row\"><span>gen 3 closed form</span><span class=\"ok\">60 fuel</span></div>\
-                    <div class=\"lad-row\"><span>gen 4 wasm binary</span><span class=\"ok\">186 bytes</span></div>\
-                  </div>\
-                  <button class=\"link-btn mono\" style=\"margin-top:12px;\" data-act=\"page\" data-val=\"compiler\">compile &amp; run wasm live in browser →</button>\
+                  <div class=\"big-stat mono\">186 b</div>\
+                  <div class=\"card-k mono\">wasm 1.0 · 18.5x less fuel · <button class=\"link-btn\" data-act=\"page\" data-val=\"compiler\">try compiler →</button></div>\
                 </div>\
               </div>\
-              <div class=\"widget\" style=\"margin-top:20px;\">\
+              <div class=\"widget\" style=\"margin-top:16px;\">\
                 <div class=\"tab-strip\">\
-                  <span class=\"tab-label mono\">try a live hybrid reflex (wasm)</span>\
                   <button class=\"tab-item\" data-act=\"reflex_run\" data-val=\"oauth token refresh fails on safari\">oauth issue</button>\
                   <button class=\"tab-item\" data-act=\"reflex_run\" data-val=\"browser tab crashes on scroll\">browser issue</button>\
                   <button class=\"tab-item\" data-act=\"reflex_run\" data-val=\"enterprise billing question\">unseen (escalate)</button>\
@@ -975,23 +927,19 @@ impl StudioState {
             if self.reflex_hit { "offline hit" } else { "escalated" },
             esc_html(&self.reflex_label),
             self.reflex_fuel,
-            if self.reflex_hit { "0 llm calls" } else { "safe fallback" },
+            if self.reflex_hit { "0 llm calls" } else { "ask llm" },
         ));
 
-        // =====================================================================
-        // BEAT 3: TAMPER-EVIDENT SEALS (ONE INTERACTIVE STRIP)
-        // =====================================================================
+        // 03 seal — 1 strip
         let seal_cls = if self.seal_ok { "ok" } else { "err" };
         let seal_btn = if self.seal_tampered {
-            "<button class=\"act-btn\" data-act=\"seal_restore\">restore valid seal</button>"
+            "<button class=\"act-btn\" data-act=\"seal_restore\">restore</button>"
         } else {
             "<button class=\"act-btn danger\" data-act=\"seal_tamper\">flip 1 byte</button>"
         };
         h.push_str(&format!(
             "<section class=\"beat\">\
-              <div class=\"beat-k mono\">03 / tamper-evident bundles &amp; logs</div>\
-              <h2 class=\"beat-title\">change one byte and it refuses to run.</h2>\
-              <p class=\"beat-copy\">every distilled skill (.ncrystal) carries a sha-256 hash and static capability audit; every mcp or hook decision writes to a hash-chained audit log you can verify offline with <code>nacre audit-verify</code>.</p>\
+              <div class=\"beat-k mono\">03 / .ncrystal sha-256 seal</div>\
               <div class=\"seal-strip\">\
                 <div class=\"seal-left\">\
                   <span class=\"verdict-pill mono {}\">{}</span>\
@@ -1007,49 +955,36 @@ impl StudioState {
             seal_btn,
         ));
 
-        // =====================================================================
-        // BEAT 4: USE IT TODAY (REAL AI DEV SETUP SWITCHER WITH COPY BUTTON)
-        // =====================================================================
-        let (snippet_id, snippet_code, snippet_note) = match self.setup_tab {
+        // 04 setup — 3-tab copyable config
+        let (snippet_id, snippet_code) = match self.setup_tab {
             "mcp" => (
                 "code-mcp",
-                "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"nacre\",\n      \"args\": [\n        \"mcp-guard\", \"--preset\", \"coding-agent\",\n        \"--allow-path\", \"/repo/src/\",\n        \"--reflex\", \"triage.ncrystal\",\n        \"--journal\", \".nacre-audit.jsonl\", \"--\",\n        \"npx\", \"-y\", \"@modelcontextprotocol/server-filesystem\", \"/repo\"\n      ]\n    }\n  }\n}",
-                "wraps any stdio mcp server. blocks secrets & '..' escapes, strips hidden unicode smuggling in responses, and short-circuits reflex hits at $0.",
+                "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"nacre\",\n      \"args\": [\n        \"mcp-guard\", \"--preset\", \"coding\",\n        \"--allow-path\", \"/repo/src/\",\n        \"--reflex\", \"triage.ncrystal\",\n        \"--journal\", \".nacre-audit.jsonl\", \"--\",\n        \"npx\", \"-y\", \"@modelcontextprotocol/server-filesystem\", \"/repo\"\n      ]\n    }\n  }\n}",
             ),
             "reflex" => (
                 "code-reflex",
-                "# 1. distill any {\"input\":\"...\",\"output\":\"...\"} log into a sealed .ncrystal\nnacre distill --input calls.jsonl --out triage.ncrystal --min-support 4\n\n# 2. query offline at $0 tokens (exit 0 = hit, exit 10 = ask llm, exit 3 = tamper)\nnacre query triage.ncrystal \"outage: checkout api 503\"",
-                "works from bash, python, node, or rust. no gpu, no fine-tuning, zero external runtime dependencies.",
+                "nacre distill --input calls.jsonl --out triage.ncrystal --min-support 4\nnacre query triage.ncrystal \"outage: checkout api 503\"",
             ),
             _ => (
                 "code-claude",
-                "# 1. generate nacre.policy and .claude/settings.json in your repo\nnacre init --claude\n\n# 2. self-test your policy against 10 secret/traversal/rm-rf probes\nnacre test-policy --policy nacre.policy\n\n# 3. inspect & verify the sha-256 audit log after your session\nnacre audit-summary .nacre-audit.jsonl",
-                "drops straight into claude code PreToolUse hooks (exit 0 allow, exit 2 block with merkle proof).",
+                "nacre init --claude\nnacre test-policy --policy nacre.policy\nnacre audit-summary .nacre-audit.jsonl",
             ),
         };
 
         h.push_str(&format!(
             "<section class=\"beat\">\
-              <div class=\"beat-k mono\">04 / use it in 60 seconds</div>\
-              <h2 class=\"beat-title\">wrap the tools you already run.</h2>\
-              <p class=\"beat-copy\">you do not need to rewrite your agent in a new language. drop the single rust binary in front of claude code, any mcp server, or your jsonl logs.</p>\
+              <div class=\"beat-k mono\">04 / install</div>\
               <div class=\"widget\">\
                 <div class=\"tab-strip\">\
-                  <button class=\"tab-item {}\" data-act=\"setup_tab\" data-val=\"claude\">claude code hook</button>\
-                  <button class=\"tab-item {}\" data-act=\"setup_tab\" data-val=\"mcp\">mcp server proxy</button>\
-                  <button class=\"tab-item {}\" data-act=\"setup_tab\" data-val=\"reflex\">jsonl reflex cache</button>\
+                  <button class=\"tab-item {}\" data-act=\"setup_tab\" data-val=\"claude\">claude code</button>\
+                  <button class=\"tab-item {}\" data-act=\"setup_tab\" data-val=\"mcp\">mcp server</button>\
+                  <button class=\"tab-item {}\" data-act=\"setup_tab\" data-val=\"reflex\">jsonl reflex</button>\
                   <span style=\"flex:1\"></span>\
                   <button class=\"copy-btn inline-copy\" data-copy=\"{}\">copy</button>\
                 </div>\
                 <div class=\"widget-body\">\
                   <pre class=\"code clean\" id=\"{}\">{}</pre>\
-                  <p class=\"caption\">{}</p>\
                 </div>\
-              </div>\
-              <div class=\"end-nav mono\">\
-                <button class=\"act-btn\" data-act=\"page\" data-val=\"compiler\">open wasm compiler →</button>\
-                <button class=\"act-btn\" data-act=\"page\" data-val=\"benchmarks\">explore benchmarks →</button>\
-                <button class=\"act-btn\" data-act=\"page\" data-val=\"repl\">open kernel repl →</button>\
               </div>\
             </section>",
             if self.setup_tab == "claude" { "active" } else { "" },
@@ -1058,7 +993,6 @@ impl StudioState {
             snippet_id,
             snippet_id,
             esc_html(snippet_code),
-            snippet_note,
         ));
     }
 
