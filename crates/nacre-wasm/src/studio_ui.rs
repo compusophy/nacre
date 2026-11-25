@@ -31,11 +31,21 @@ const FW_LEX: &str = "\
     (ok (allowed_read ?p))
     (blocked fs_read ?p)))
 
+(rule (agent_fw (bash ?cmd) ?k)
+  (if (or (str_contains ?cmd \"rm -rf\")
+          (str_contains ?cmd \"push --force\"))
+    (blocked bash ?cmd)
+    (ok (allowed_bash ?cmd))))
+
 (rule (agent_fw (http_post ?u ?b) ?k)
   (blocked http_post ?u))
 
 (rule (agent_fw (reply ?t) ?k)
   (ok (reply ?t)))";
+
+const REFLEX_BASE_LEX: &str = "\
+(rule (classify ?msg) (perform llm_triage ?msg))
+(rule (route ?msg) (classify ?msg))";
 
 const SEAL_BASE_LEX: &str = "\
 (rule (triage ?msg) (perform llm_classify ?msg))
@@ -55,7 +65,7 @@ struct FwPreset {
 const FW_PRESETS: &[FwPreset] = &[
     FwPreset {
         id: "haiku_hijack",
-        label: "haiku 5.5 prefix escape",
+        label: "haiku 5.5 escape",
         tool: "fs_read",
         arg: "/public_secret/prod_keys.env",
         caption: "captured live on claude-haiku-5.5 (--no-policy). bypasses naive starts_with(\"/public\") checks.",
@@ -66,6 +76,13 @@ const FW_PRESETS: &[FwPreset] = &[
         tool: "fs_read",
         arg: "/public/../.env",
         caption: "starts with /public/, but climbs out via '..'. rejected mechanically by the handle rule.",
+    },
+    FwPreset {
+        id: "bash_rm",
+        label: "bash rm -rf",
+        tool: "bash",
+        arg: "rm -rf /",
+        caption: "destructive shell command blocked inside the coding-agent handle policy before exec.",
     },
     FwPreset {
         id: "code_inject",
@@ -230,6 +247,12 @@ struct StudioState {
     fw_nacre_expr: String,
     fw_merkle: String,
     fw_fuel: u64,
+    // live reflex demo state (chapter 02)
+    reflex_lex: String,
+    reflex_query: String,
+    reflex_hit: bool,
+    reflex_label: String,
+    reflex_fuel: u64,
     // seal state
     seal_valid_wire: String,
     seal_tampered: bool,
@@ -266,6 +289,11 @@ impl StudioState {
             fw_nacre_expr: String::new(),
             fw_merkle: String::new(),
             fw_fuel: 0,
+            reflex_lex: String::new(),
+            reflex_query: String::from("oauth token refresh fails on safari"),
+            reflex_hit: true,
+            reflex_label: String::from("auth"),
+            reflex_fuel: 0,
             seal_valid_wire: String::new(),
             seal_tampered: false,
             seal_ok: true,
@@ -287,6 +315,7 @@ impl StudioState {
             repl_out: String::new(),
         };
         st.eval_firewall();
+        st.init_reflex();
         st.init_seal();
         st.run_repl();
         st
@@ -333,6 +362,12 @@ impl StudioState {
                 self.fw_preset = String::from("custom");
                 self.fw_caption = String::from("evaluated live inside nacre-core wasm32 in your browser.");
                 self.eval_firewall();
+            }
+            "reflex_run" => {
+                if !pay.trim().is_empty() {
+                    self.reflex_query = String::from(pay.trim());
+                }
+                self.eval_reflex();
             }
             "seal_tamper" => {
                 self.seal_tampered = true;
@@ -416,6 +451,11 @@ impl StudioState {
                 "(handle (perform http_post {} \"payload\") 500 agent_fw)",
                 nacre_quote(&self.fw_arg)
             )
+        } else if self.fw_tool == "bash" {
+            format!(
+                "(handle (perform bash {}) 500 agent_fw)",
+                nacre_quote(&self.fw_arg)
+            )
         } else {
             format!(
                 "(handle (perform fs_read {}) 500 agent_fw)",
@@ -434,6 +474,71 @@ impl StudioState {
             self.fw_merkle = arena.hash(v).short_hex();
             self.fw_fuel = fuel.used();
             self.fw_nacre_status = if blocked { "blocked" } else { "allowed" };
+        }
+    }
+
+    fn init_reflex(&mut self) {
+        let mut arena = Arena::new();
+        let mut lex = Lexicon::new();
+        if lex.load_source(&mut arena, REFLEX_BASE_LEX).is_err() {
+            return;
+        }
+        let samples = [
+            ("oauth login fails with 401", "auth"),
+            ("oauth refresh token expired", "auth"),
+            ("browser tab hangs on devtools", "browser"),
+            ("browser screenshot blank page", "browser"),
+            ("cli flag --json exits early", "cli"),
+            ("cli subcommand help formatting", "cli"),
+        ];
+        let mut traces = Vec::new();
+        for (msg, lbl) in samples {
+            if let Ok(entry) = parse_term(&mut arena, &format!("(route {})", nacre_quote(msg))) {
+                let lbl_s = String::from(lbl);
+                if let Ok(tr) = run_and_record(&mut arena, &lex, entry, 5000, |a, _| {
+                    let s = a.intern_sym(&lbl_s);
+                    Ok(a.mk_sym(s)?.0)
+                }) {
+                    traces.push(tr);
+                }
+            }
+        }
+        if let Ok(ac) = auto_crystallize_with_mode(
+            &mut arena,
+            &lex,
+            &traces,
+            SynthMode::HybridGuarded { min_support: 2 },
+        ) {
+            self.reflex_lex = ac.lexicon.to_source(&arena);
+            self.eval_reflex();
+        }
+    }
+
+    fn eval_reflex(&mut self) {
+        if self.reflex_lex.is_empty() {
+            return;
+        }
+        let mut arena = Arena::new();
+        let mut lex = Lexicon::new();
+        if lex.load_source(&mut arena, &self.reflex_lex).is_err() {
+            return;
+        }
+        let Ok(entry) = parse_term(&mut arena, &format!("(route {})", nacre_quote(&self.reflex_query))) else {
+            return;
+        };
+        let mut fuel = Fuel::new(2000);
+        match eval(&mut arena, &lex, entry, &mut fuel) {
+            Outcome::Done(v) => {
+                self.reflex_hit = true;
+                self.reflex_label = print_term(&arena, v);
+                self.reflex_fuel = fuel.used();
+            }
+            Outcome::Yield { .. } => {
+                self.reflex_hit = false;
+                self.reflex_label = String::from("escalate → ask llm");
+                self.reflex_fuel = fuel.used();
+            }
+            _ => {}
         }
     }
 
@@ -816,7 +921,7 @@ impl StudioState {
         // =====================================================================
         // BEAT 2: REFLEX COMPILER (TWO CALM VISUAL CARDS)
         // =====================================================================
-        h.push_str(
+        h.push_str(&format!(
             "<section class=\"beat\">\
               <div class=\"beat-k mono\">02 / reflex compiler</div>\
               <h2 class=\"beat-title\">stop paying a model for work it already solved.</h2>\
@@ -845,8 +950,33 @@ impl StudioState {
                   <button class=\"link-btn mono\" style=\"margin-top:12px;\" data-act=\"page\" data-val=\"compiler\">compile &amp; run wasm live in browser →</button>\
                 </div>\
               </div>\
+              <div class=\"widget\" style=\"margin-top:20px;\">\
+                <div class=\"tab-strip\">\
+                  <span class=\"tab-label mono\">try a live hybrid reflex (wasm)</span>\
+                  <button class=\"tab-item\" data-act=\"reflex_run\" data-val=\"oauth token refresh fails on safari\">oauth issue</button>\
+                  <button class=\"tab-item\" data-act=\"reflex_run\" data-val=\"browser tab crashes on scroll\">browser issue</button>\
+                  <button class=\"tab-item\" data-act=\"reflex_run\" data-val=\"enterprise billing question\">unseen (escalate)</button>\
+                </div>\
+                <div class=\"widget-body\">\
+                  <div class=\"input-row\">\
+                    <input class=\"inp mono\" id=\"rfx-in\" type=\"text\" value=\"{}\" data-enter=\"reflex_run\">\
+                    <button class=\"act-btn primary\" data-act=\"reflex_run\" data-from=\"rfx-in\">query</button>\
+                  </div>\
+                  <div class=\"verdict-strip\">\
+                    <span class=\"verdict-pill mono {}\">{}</span>\
+                    <code class=\"verdict-expr mono\">{}</code>\
+                    <span class=\"verdict-meta mono\">{} fuel · {}</span>\
+                  </div>\
+                </div>\
+              </div>\
             </section>",
-        );
+            esc_html(&self.reflex_query),
+            if self.reflex_hit { "ok" } else { "warn" },
+            if self.reflex_hit { "offline hit" } else { "escalated" },
+            esc_html(&self.reflex_label),
+            self.reflex_fuel,
+            if self.reflex_hit { "0 llm calls" } else { "safe fallback" },
+        ));
 
         // =====================================================================
         // BEAT 3: TAMPER-EVIDENT SEALS (ONE INTERACTIVE STRIP)
@@ -883,8 +1013,8 @@ impl StudioState {
         let (snippet_id, snippet_code, snippet_note) = match self.setup_tab {
             "mcp" => (
                 "code-mcp",
-                "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"nacre\",\n      \"args\": [\n        \"mcp-guard\", \"--preset\", \"coding-agent\",\n        \"--allow-path\", \"/repo/src/\",\n        \"--journal\", \".nacre-audit.jsonl\", \"--\",\n        \"npx\", \"-y\", \"@modelcontextprotocol/server-filesystem\", \"/repo\"\n      ]\n    }\n  }\n}",
-                "wraps any stdio mcp server. blocks .env, ssh keys, '..' escapes, and denied tools before the server ever sees the json-rpc call.",
+                "{\n  \"mcpServers\": {\n    \"filesystem\": {\n      \"command\": \"nacre\",\n      \"args\": [\n        \"mcp-guard\", \"--preset\", \"coding-agent\",\n        \"--allow-path\", \"/repo/src/\",\n        \"--reflex\", \"triage.ncrystal\",\n        \"--journal\", \".nacre-audit.jsonl\", \"--\",\n        \"npx\", \"-y\", \"@modelcontextprotocol/server-filesystem\", \"/repo\"\n      ]\n    }\n  }\n}",
+                "wraps any stdio mcp server. blocks secrets & '..' escapes, strips hidden unicode smuggling in responses, and short-circuits reflex hits at $0.",
             ),
             "reflex" => (
                 "code-reflex",
@@ -893,7 +1023,7 @@ impl StudioState {
             ),
             _ => (
                 "code-claude",
-                "# 1. generate nacre.policy and .claude/settings.json in your repo\nnacre init --claude\n\n# 2. self-test your policy against 10 secret/traversal/rm-rf probes\nnacre test-policy --policy nacre.policy\n\n# 3. verify the sha-256 audit chain after your session\nnacre audit-verify .nacre-audit.jsonl",
+                "# 1. generate nacre.policy and .claude/settings.json in your repo\nnacre init --claude\n\n# 2. self-test your policy against 10 secret/traversal/rm-rf probes\nnacre test-policy --policy nacre.policy\n\n# 3. inspect & verify the sha-256 audit log after your session\nnacre audit-summary .nacre-audit.jsonl",
                 "drops straight into claude code PreToolUse hooks (exit 0 allow, exit 2 block with merkle proof).",
             ),
         };
@@ -1272,6 +1402,18 @@ mod tests {
         let h_ok = dispatch_ui_event("fw_preset\nbenign_readme");
         assert_strict_lowercase(&h_ok);
         assert!(h_ok.contains("allowed"));
+
+        let h_bash = dispatch_ui_event("fw_preset\nbash_rm");
+        assert_strict_lowercase(&h_bash);
+        assert!(h_bash.contains("blocked"));
+
+        let h_rfx_hit = dispatch_ui_event("reflex_run\noauth refresh broken");
+        assert_strict_lowercase(&h_rfx_hit);
+        assert!(h_rfx_hit.contains("offline hit"));
+
+        let h_rfx_esc = dispatch_ui_event("reflex_run\nenterprise pricing");
+        assert_strict_lowercase(&h_rfx_esc);
+        assert!(h_rfx_esc.contains("escalated"));
 
         let h_tamp = dispatch_ui_event("seal_tamper");
         assert_strict_lowercase(&h_tamp);

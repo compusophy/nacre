@@ -40,6 +40,7 @@ fn main() {
         "distill" => guard::run_distill(&args[1..]),
         "query" => guard::run_query(&args[1..]),
         "audit-verify" => guard::run_audit_verify(&args[1..]),
+        "audit-summary" => guard::run_audit_summary(&args[1..]),
         "bench" => bench::run_bench(),
         "coev" => cmd_coev(),
         "security-bench" => cmd_security_bench(),
@@ -93,6 +94,9 @@ commands:
 
   nacre audit-verify <audit.jsonl>
       verify the sha-256 hash chain of an mcp-guard / hook audit journal offline
+
+  nacre audit-summary <audit.jsonl>
+      verify the audit chain and print a session report (allowed, blocked, reflex hits, merkle proofs)
 
   nacre bench
       run the real 2-domain verifiable hill-climb & ablation benchmark

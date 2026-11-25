@@ -29,10 +29,9 @@ mcp servers have no built-in capability firewall. wrap any stdio server in your 
       "command": "nacre",
       "args": [
         "mcp-guard",
+        "--preset", "coding-agent",
         "--allow-path", "/repo/src/",
-        "--deny-tool", "http_post",
-        "--deny-substr", ".env",
-        "--deny-substr", "id_rsa",
+        "--reflex", "triage.ncrystal",
         "--journal", ".nacre-audit.jsonl",
         "--",
         "npx", "-y", "@modelcontextprotocol/server-filesystem", "/repo"
@@ -42,7 +41,7 @@ mcp servers have no built-in capability firewall. wrap any stdio server in your 
 }
 ```
 
-every `tools/call` is evaluated inside `nacre-core`'s pure `handle` firewall in under a millisecond before the child server ever sees it. path separators are normalized, `..` and `%2e` traversals are rejected, blocked calls return a json-rpc `-32003` error with the sha-256 merkle proof hash, and every allow/block appends to a hash-chained audit log.
+every `tools/call` is evaluated inside `nacre-core`'s pure `handle` firewall in under a millisecond before the child server ever sees it. path separators are normalized, `..` and `%2e` traversals are rejected, optional `--reflex` bundles short-circuit repeated calls offline at `$0` tokens, inbound tool responses are scanned for hidden zero-width/tag-block unicode smuggling, blocked calls return a json-rpc `-32003` error with the sha-256 merkle proof hash, and every decision appends to a hash-chained audit log.
 
 inspect the generated pure policy or supply your own custom `.nacre` handler:
 
@@ -81,9 +80,10 @@ or wire `--preset coding-agent` directly in `.claude/settings.json`:
 
 allowed calls exit `0`. blocked calls print the merkle proof to stderr and exit `2` (claude code's native block code).
 
-verify the hash-chained audit log offline at any time (catches edited, reordered, or deleted entries):
+verify and summarize the hash-chained audit log offline at any time (catches edited, reordered, or deleted entries):
 
 ```bash
+nacre audit-summary .nacre-audit.jsonl
 nacre audit-verify .nacre-audit.jsonl
 ```
 
