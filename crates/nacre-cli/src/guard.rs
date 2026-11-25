@@ -21,7 +21,22 @@ use nacre_core::lexicon::Lexicon;
 use nacre_core::syntax::{parse_term, print_term};
 use nacre_core::synthesize::{auto_crystallize_with_mode, SynthMode};
 
-/// parsed policy flags shared by `mcp-guard` and `hook`.
+/// built-in battle-tested secret & destructive-command guards for `--preset coding-agent`.
+const CODING_AGENT_DENY_SUBSTRS: &[&str] = &[
+    ".env",
+    "id_rsa",
+    "id_ed25519",
+    ".aws/credentials",
+    ".npmrc",
+    "rm -rf",
+    "git push --force",
+    "git push -f",
+    "git reset --hard",
+    "curl | sh",
+    "wget | sh",
+];
+
+/// parsed policy flags shared by `mcp-guard`, `hook`, and `test-policy`.
 #[derive(Clone, Debug, Default)]
 pub struct GuardConfig {
     pub allow_paths: Vec<String>,
@@ -30,6 +45,7 @@ pub struct GuardConfig {
     pub custom_policy_path: Option<String>,
     pub journal_path: Option<String>,
     pub print_policy: bool,
+    pub preset: Option<String>,
     pub child_cmd: Vec<String>,
 }
 
@@ -202,7 +218,7 @@ pub fn evaluate_tool_call(
         ));
     }
 
-    let mut fuel = Fuel::new(10_000);
+    let mut fuel = Fuel::new(50_000);
     match eval(&mut arena, &lex, expr, &mut fuel) {
         Outcome::Done(v) => {
             let txt = print_term(&arena, v);
@@ -249,6 +265,18 @@ pub fn parse_guard_args(args: &[String]) -> Result<GuardConfig, String> {
             }
             "--journal" if i + 1 < args.len() => {
                 cfg.journal_path = Some(args[i + 1].clone());
+                i += 2;
+            }
+            "--preset" if i + 1 < args.len() => {
+                let p = args[i + 1].to_ascii_lowercase();
+                if p == "coding-agent" || p == "coding" {
+                    for s in CODING_AGENT_DENY_SUBSTRS {
+                        cfg.deny_substrs.push(String::from(*s));
+                    }
+                    cfg.preset = Some(String::from("coding-agent"));
+                } else {
+                    return Err(format!("unknown preset '{}' (available: coding-agent)", p));
+                }
                 i += 2;
             }
             "--print-policy" => {
@@ -731,6 +759,136 @@ pub fn run_hook(args: &[String]) -> Result<(), String> {
         process::exit(2);
     }
 
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Command 5 & 6: `nacre init` & `nacre test-policy` (zero-friction AI dev setup)
+// ---------------------------------------------------------------------------
+
+/// `nacre init [--dir <path>] [--claude]`:
+/// creates `nacre.policy` for the current workspace and prints exact Claude Code & MCP configs.
+pub fn run_init(args: &[String]) -> Result<(), String> {
+    let write_claude = args.iter().any(|a| a == "--claude");
+    let mut dir = std::env::current_dir()
+        .map_err(|e| format!("failed to get cwd: {}", e))?
+        .to_string_lossy()
+        .into_owned();
+    let mut i = 0;
+    while i < args.len() {
+        if args[i] == "--dir" && i + 1 < args.len() {
+            dir = args[i + 1].clone();
+            i += 2;
+        } else {
+            i += 1;
+        }
+    }
+    let mut norm_dir = normalize_path_like(&dir);
+    if !norm_dir.ends_with('/') {
+        norm_dir.push('/');
+    }
+
+    let mut cfg = GuardConfig {
+        allow_paths: vec![norm_dir.clone()],
+        deny_tools: vec![],
+        deny_substrs: CODING_AGENT_DENY_SUBSTRS.iter().map(|s| String::from(*s)).collect(),
+        preset: Some(String::from("coding-agent")),
+        ..Default::default()
+    };
+    cfg.deny_tools.push(String::from("http_post"));
+    let policy_src = build_policy_source(&cfg)?;
+    let _ = evaluate_tool_call(&policy_src, "__preflight", "", false, "{}")?;
+
+    let policy_path = Path::new(&dir).join("nacre.policy");
+    fs::write(&policy_path, format!("{}\n", policy_src))
+        .map_err(|e| format!("failed to write nacre.policy: {}", e))?;
+
+    println!("initialized  {}", policy_path.to_string_lossy().to_ascii_lowercase());
+    println!("workspace    {}", norm_dir);
+    println!("blocks       {} secret & destructive patterns + canonical path boundary", CODING_AGENT_DENY_SUBSTRS.len());
+    println!();
+    println!("claude code (.claude/settings.json):");
+    println!("  \"command\": \"nacre hook --policy nacre.policy --journal .nacre-audit.jsonl\"");
+    println!();
+    println!("mcp server wrapper (cursor / claude desktop / codex):");
+    println!("  \"command\": \"nacre\", \"args\": [\"mcp-guard\", \"--policy\", \"nacre.policy\", \"--journal\", \".nacre-audit.jsonl\", \"--\", \"npx\", \"-y\", \"@modelcontextprotocol/server-filesystem\", \"{}\"]", norm_dir);
+    println!();
+    println!("verify your policy right now:");
+    println!("  nacre test-policy --policy nacre.policy --allow-path {}", norm_dir);
+
+    if write_claude {
+        let claude_dir = Path::new(&dir).join(".claude");
+        fs::create_dir_all(&claude_dir).map_err(|e| format!("mkdir .claude failed: {}", e))?;
+        let settings_path = claude_dir.join("settings.json");
+        if settings_path.exists() {
+            println!("note         .claude/settings.json already exists (left untouched; paste snippet above)");
+        } else {
+            let settings = "{\n  \"hooks\": {\n    \"PreToolUse\": [\n      {\n        \"matcher\": \".*\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"nacre hook --policy nacre.policy --journal .nacre-audit.jsonl\"\n          }\n        ]\n      }\n    ]\n  }\n}\n";
+            fs::write(&settings_path, settings)
+                .map_err(|e| format!("write .claude/settings.json failed: {}", e))?;
+            println!("written      {}", settings_path.to_string_lossy().to_ascii_lowercase());
+        }
+    }
+    Ok(())
+}
+
+/// `nacre test-policy [--policy nacre.policy | --preset coding-agent --allow-path /repo/]`:
+/// runs a 10-case coding-agent security & benign-utility self-test against the live nacre-core policy.
+pub fn run_test_policy(args: &[String]) -> Result<(), String> {
+    let mut cfg = parse_guard_args(args)?;
+    let sample_root = cfg
+        .allow_paths
+        .first()
+        .cloned()
+        .unwrap_or_else(|| String::from("/repo/"));
+    let mut root = normalize_path_like(&sample_root);
+    if !root.ends_with('/') {
+        root.push('/');
+    }
+    if cfg.custom_policy_path.is_none() && cfg.deny_substrs.is_empty() && cfg.allow_paths.is_empty() {
+        for s in CODING_AGENT_DENY_SUBSTRS {
+            cfg.deny_substrs.push(String::from(*s));
+        }
+        cfg.allow_paths.push(root.clone());
+    }
+    let policy_src = build_policy_source(&cfg)?;
+
+    let cases: Vec<(&str, &str, String, bool, bool)> = vec![
+        ("read_src_main", "Read", format!("{}src/main.rs", root), true, true),
+        ("read_readme", "Read", format!("{}readme.md", root), true, true),
+        ("bash_cargo_test", "Bash", String::from("cargo test --workspace"), false, true),
+        ("secret_dotenv", "Read", format!("{}.env", root), true, false),
+        ("secret_ssh_key", "Read", String::from("/home/dev/.ssh/id_rsa"), true, false),
+        ("secret_aws_creds", "Read", String::from("/home/dev/.aws/credentials"), true, false),
+        ("dotdot_traversal", "Read", format!("{}src/../../etc/passwd", root), true, false),
+        ("sibling_prefix", "Read", format!("{}_secret/prod_keys.env", root.trim_end_matches('/')), true, false),
+        ("bash_rm_rf", "Bash", String::from("rm -rf /"), false, false),
+        ("bash_force_push", "Bash", String::from("git push --force origin main"), false, false),
+    ];
+
+    println!("=== nacre policy self-test ({} cases) ===", cases.len());
+    let mut passed = 0usize;
+    for (name, tool, target, has_path, expect_allow) in &cases {
+        let raw = format!("{{\"target\":{}}}", json_esc(target));
+        let v = evaluate_tool_call(&policy_src, tool, target, *has_path, &raw)?;
+        let ok = v.allowed == *expect_allow;
+        if ok {
+            passed += 1;
+        }
+        println!(
+            "  {:<4} {:<18} {:<5} {:<9} merkle={} target={}",
+            if ok { "pass" } else { "fail" },
+            name,
+            tool.to_ascii_lowercase(),
+            if v.allowed { "allow" } else { "block" },
+            v.merkle_hash,
+            target
+        );
+    }
+    println!("result: {}/{} passed", passed, cases.len());
+    if passed != cases.len() {
+        return Err(format!("policy self-test failed ({}/{} passed)", passed, cases.len()));
+    }
     Ok(())
 }
 

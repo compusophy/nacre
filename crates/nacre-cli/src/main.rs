@@ -33,6 +33,8 @@ fn main() {
     }
 
     let res = match args[0].as_str() {
+        "init" => guard::run_init(&args[1..]),
+        "test-policy" => guard::run_test_policy(&args[1..]),
         "mcp-guard" => guard::run_mcp_guard(&args[1..]),
         "hook" => guard::run_hook(&args[1..]),
         "distill" => guard::run_distill(&args[1..]),
@@ -71,10 +73,16 @@ fn print_help() {
 nacre — deterministic symbolic cells, durable merkle journals, and verified reflexes
 
 commands:
-  nacre mcp-guard [--allow-path <pfx>] [--deny-tool <name>] [--deny-substr <str>] [--policy <f>] [--journal <audit.jsonl>] -- <cmd> [args...]
+  nacre init [--dir <path>] [--claude]
+      generate a workspace nacre.policy (coding-agent preset) and Claude Code / MCP config snippets
+
+  nacre test-policy [--policy <file> | --preset coding-agent --allow-path <pfx>]
+      run a 10-case adversarial + benign self-test against your policy before deploying
+
+  nacre mcp-guard [--preset coding-agent] [--allow-path <pfx>] [--deny-tool <name>] [--deny-substr <str>] [--policy <f>] [--journal <audit.jsonl>] -- <cmd> [args...]
       wrap any stdio MCP server behind nacre's algebraic handle firewall + sha-256 audit journal
 
-  nacre hook [--allow-path <pfx>] [--deny-tool <name>] [--deny-substr <str>] [--policy <f>] [--journal <audit.jsonl>]
+  nacre hook [--preset coding-agent] [--allow-path <pfx>] [--deny-tool <name>] [--deny-substr <str>] [--policy <f>] [--journal <audit.jsonl>]
       drop-in Claude Code / Codex PreToolUse stdin JSON guard (exit 0 allow, exit 2 block + merkle proof)
 
   nacre distill --input <calls.jsonl> --out <skill.ncrystal> [--min-support 4] [--pure]

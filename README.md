@@ -8,6 +8,8 @@ every tool call passes through a pure algebraic effect handler before it touches
 
 ```bash
 cargo install --path crates/nacre-cli
+nacre init --claude
+nacre test-policy --policy nacre.policy
 ```
 
 ---
@@ -48,9 +50,16 @@ inspect the generated pure policy or supply your own custom `.nacre` handler:
 nacre mcp-guard --allow-path /repo/src/ --deny-substr .env --print-policy
 ```
 
-### 2. claude code / codex `PreToolUse` hook (`nacre hook`)
+### 2. claude code / codex `PreToolUse` hook (`nacre init` + `nacre hook`)
 
-drop into `.claude/settings.json`:
+generate `nacre.policy` (preloaded with `--preset coding-agent`: blocks `.env`, ssh keys, aws credentials, `.npmrc`, `rm -rf`, `git push --force`, `curl | sh`, and `..` traversals) and `.claude/settings.json` in one command:
+
+```bash
+nacre init --claude
+nacre test-policy --policy nacre.policy
+```
+
+or wire `--preset coding-agent` directly in `.claude/settings.json`:
 
 ```json
 {
@@ -61,7 +70,7 @@ drop into `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "nacre hook --allow-path /repo/src/ --deny-substr .env --deny-substr 'rm -rf' --journal .nacre-audit.jsonl"
+            "command": "nacre hook --preset coding-agent --allow-path /repo/src/ --journal .nacre-audit.jsonl"
           }
         ]
       }
